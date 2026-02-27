@@ -1,0 +1,5 @@
+{
+  "name": "Si-Absensi Lokal Optimizer",
+  "description": "A high-performance student attendance management system with offline-first local storage, data visualization, and parent notification tracking.",
+  "requestFramePermissions": []
+}
