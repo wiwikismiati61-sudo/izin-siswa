@@ -253,15 +253,15 @@ const App: React.FC = () => {
       {isSidebarOpen && <div onClick={() => setIsSidebarOpen(false)} className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 md:hidden transition-opacity"></div>}
 
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
-        <header className="md:hidden sticky top-0 bg-white/80 backdrop-blur-md z-20 p-4 border-b border-slate-200 flex justify-between items-center shadow-sm">
-            <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">
-                <Menu size={24} />
+        <header className="md:hidden sticky top-0 bg-white/80 backdrop-blur-md z-20 p-3 border-b border-slate-200 flex justify-between items-center shadow-sm">
+            <button onClick={() => setIsSidebarOpen(true)} className="p-1.5 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
+                <Menu size={20} />
             </button>
-            <h1 className="text-lg font-black text-slate-800 tracking-tight">Si-Absensi</h1>
-            <div className="w-10"></div>
+            <h1 className="text-base font-black text-slate-800 tracking-tight">Si-Absensi</h1>
+            <div className="w-8"></div>
         </header>
 
-        <main className="flex-1 p-4 md:p-8 lg:p-10 overflow-y-auto custom-scrollbar">
+        <main className="flex-1 p-3 md:p-6 lg:p-8 overflow-y-auto custom-scrollbar">
           {activeTab === 'dashboard' && (
             <Dashboard 
               dataAbsensi={dataAbsensi}

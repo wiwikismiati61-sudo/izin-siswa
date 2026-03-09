@@ -80,12 +80,12 @@ const StatCard: React.FC<{
   const style = colorStyles[color] || colorStyles.slate;
   
   return (
-    <div className={`${style.bg} p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow`}>
-      <div className="flex justify-between items-start mb-4">
-        <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{label}</h4>
-        {icon && <div className={`p-2 rounded-xl ${style.iconBg}`}>{icon}</div>}
+    <div className={`${style.bg} p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow`}>
+      <div className="flex justify-between items-start mb-3">
+        <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{label}</h4>
+        {icon && <div className={`p-1.5 rounded-lg ${style.iconBg}`}>{icon}</div>}
       </div>
-      <p className={`text-4xl font-black ${style.text}`}>{value}</p>
+      <p className={`text-3xl font-black ${style.text}`}>{value}</p>
     </div>
   );
 };
@@ -166,11 +166,11 @@ const Dashboard: React.FC<DashboardProps> = ({
   const stats = getStats();
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row justify-between items-start gap-4">
         <div>
-          <h2 className="text-3xl font-black text-slate-900">Ringkasan Data</h2>
-          <p className="text-slate-500 text-sm font-medium">Analitik kehadiran dan total data absensi</p>
+          <h2 className="text-2xl font-black text-slate-900">Ringkasan Data</h2>
+          <p className="text-slate-500 text-xs font-medium">Analitik kehadiran dan total data absensi</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <ActionLabel 
@@ -186,16 +186,16 @@ const Dashboard: React.FC<DashboardProps> = ({
             onChange={handleRestore} 
             icon={<Save size={14} />} 
           />
-          <button onClick={handleExportExcel} className="bg-white border border-indigo-200 text-indigo-700 p-2.5 px-4 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-indigo-50 hover:border-indigo-300 shadow-sm transition-all">
+          <button onClick={handleExportExcel} className="bg-white border border-indigo-200 text-indigo-700 p-2 px-3 rounded-lg text-xs font-bold flex items-center gap-2 hover:bg-indigo-50 hover:border-indigo-300 shadow-sm transition-all">
             <Download size={14} /> Ekspor Excel
           </button>
-          <button onClick={handleBackup} className="bg-slate-800 border border-slate-800 text-white p-2.5 px-4 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-slate-900 shadow-sm transition-all">
+          <button onClick={handleBackup} className="bg-slate-800 border border-slate-800 text-white p-2 px-3 rounded-lg text-xs font-bold flex items-center gap-2 hover:bg-slate-900 shadow-sm transition-all">
             <Save size={14} /> Backup JSON
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <StatCard label="Sakit (Hari Ini)" value={stats.sakit} color="emerald" />
         <StatCard label="Izin (Hari Ini)" value={stats.izin} color="amber" />
         <StatCard label="Alpha (Hari Ini)" value={stats.alpha} color="rose" />
@@ -203,15 +203,15 @@ const Dashboard: React.FC<DashboardProps> = ({
         <StatCard label="Total Seluruh Data" value={stats.totalOverall} color="indigo" icon={<Users className="w-4 h-4" />} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 space-y-4">
           {/* Multi-Status Per Kelas Chart */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm h-[400px] hover:shadow-md transition-shadow">
-            <div className="flex justify-between items-center mb-6">
-              <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Akumulasi Status per Kelas</h4>
-              <span className="text-[10px] bg-slate-50 text-slate-500 px-3 py-1 rounded-full font-bold border border-slate-200">Data Historis</span>
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm h-[320px] hover:shadow-md transition-shadow">
+            <div className="flex justify-between items-center mb-4">
+              <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Akumulasi Status per Kelas</h4>
+              <span className="text-[9px] bg-slate-50 text-slate-500 px-2 py-0.5 rounded-full font-bold border border-slate-200">Data Historis</span>
             </div>
-            <div className="w-full h-[300px]">
+            <div className="w-full h-[240px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={getAbsensiPerKelasData} margin={{bottom: 20}}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -219,7 +219,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                     dataKey="kelas" 
                     axisLine={false} 
                     tickLine={false} 
-                    tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }}
+                    tick={{ fontSize: 9, fontWeight: 700, fill: '#64748b' }}
                     interval={0}
                     angle={-45}
                     textAnchor="end"
@@ -227,29 +227,29 @@ const Dashboard: React.FC<DashboardProps> = ({
                   <YAxis 
                     axisLine={false} 
                     tickLine={false} 
-                    tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} 
+                    tick={{ fontSize: 9, fontWeight: 700, fill: '#64748b' }} 
                   />
                   <Tooltip 
                     cursor={{ fill: '#f8fafc' }}
-                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                   />
-                  <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px', fontSize: '10px', fontWeight: 'bold' }} />
-                  <Bar dataKey="Sakit" fill="#10b981" radius={[4, 4, 0, 0]} barSize={12} />
-                  <Bar dataKey="Izin" fill="#f59e0b" radius={[4, 4, 0, 0]} barSize={12} />
-                  <Bar dataKey="Alpha" fill="#f43f5e" radius={[4, 4, 0, 0]} barSize={12} />
+                  <Legend iconType="circle" wrapperStyle={{ paddingTop: '10px', fontSize: '9px', fontWeight: 'bold' }} />
+                  <Bar dataKey="Sakit" fill="#10b981" radius={[4, 4, 0, 0]} barSize={10} />
+                  <Bar dataKey="Izin" fill="#f59e0b" radius={[4, 4, 0, 0]} barSize={10} />
+                  <Bar dataKey="Alpha" fill="#f43f5e" radius={[4, 4, 0, 0]} barSize={10} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
           </div>
 
           {/* NEW Student Summary Chart */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col h-[450px] hover:shadow-md transition-shadow">
-              <div className="flex justify-between items-center mb-6">
-                  <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Rekapitulasi Absensi Siswa</h4>
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col h-[380px] hover:shadow-md transition-shadow">
+              <div className="flex justify-between items-center mb-4">
+                  <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Rekapitulasi Absensi Siswa</h4>
                   <select 
                       value={dashboardSelectedClass}
                       onChange={e => setDashboardSelectedClass(e.target.value)}
-                      className="p-2 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all appearance-none cursor-pointer"
+                      className="p-1.5 px-2 bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all appearance-none cursor-pointer"
                   >
                       <option value="">Pilih Kelas</option>
                       {KELAS_LIST.flatMap(k => 
@@ -289,15 +289,15 @@ const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm text-center flex flex-col h-[816px] lg:h-auto hover:shadow-md transition-shadow">
-          <h4 className="text-[11px] font-bold text-slate-500 mb-6 uppercase tracking-wider">Komposisi Status (Total)</h4>
-          <div className="flex-1 flex items-center justify-center p-4">
-            <ResponsiveContainer width="100%" height={300}>
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm text-center flex flex-col h-auto hover:shadow-md transition-shadow">
+          <h4 className="text-[10px] font-bold text-slate-500 mb-4 uppercase tracking-wider">Komposisi Status (Total)</h4>
+          <div className="flex-1 flex items-center justify-center p-2">
+            <ResponsiveContainer width="100%" height={240}>
               <PieChart>
                 <Pie
                   data={getChartData()}
-                  innerRadius={60}
-                  outerRadius={100}
+                  innerRadius={50}
+                  outerRadius={80}
                   paddingAngle={5}
                   dataKey="value"
                 >
