@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import { AbsensiEntry, Siswa, KeteranganStatus } from './types';
-import Login from './components/Login';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import InputForm from './components/InputForm';
@@ -10,10 +9,6 @@ import Peringatan from './components/Peringatan';
 import { Menu, Trash2 } from 'lucide-react';
 
 const App: React.FC = () => {
-  // Authentication State
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [authForm, setAuthForm] = useState({ username: '', password: '' });
-
   // Data State
   const [activeTab, setActiveTab] = useState<'dashboard' | 'input' | 'report' | 'peringatan'>('dashboard');
   const [masterSiswa, setMasterSiswa] = useState<Siswa[]>([]);
@@ -46,12 +41,6 @@ const App: React.FC = () => {
     localStorage.setItem('absensi_log_data', JSON.stringify(dataAbsensi));
     localStorage.setItem('absensi_master_siswa', JSON.stringify(masterSiswa));
   }, [dataAbsensi, masterSiswa]);
-
-  const handleLogin = () => {
-    if (authForm.username && authForm.password) {
-      setIsLoggedIn(true);
-    }
-  };
 
   const getPanggilanData = () => {
     const alphaMap: Record<string, { name: string; kelas: string; count: number }> = {};
@@ -229,10 +218,6 @@ const App: React.FC = () => {
     setEditingEntry(null);
     setActiveTab('report');
   };
-
-  if (!isLoggedIn) {
-    return <Login authForm={authForm} setAuthForm={setAuthForm} handleLogin={handleLogin} />;
-  }
 
   const sakitWarningCount = getSakitWarningData().length;
   const izinWarningCount = getIzinWarningData().length;

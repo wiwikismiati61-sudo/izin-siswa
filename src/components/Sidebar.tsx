@@ -86,16 +86,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, editingEntry
           </nav>
         </div>
       </div>
-      
-      <div className="pt-4 border-t border-slate-100">
-        <button 
-          onClick={() => window.location.reload()} 
-          className="flex items-center gap-3 w-full p-3 text-sm text-rose-600 font-bold hover:bg-rose-50 rounded-lg transition-colors group"
-        >
-          <LogOut size={18} className="group-hover:-translate-x-1 transition-transform" />
-          Keluar Sistem
-        </button>
-      </div>
     </aside>
   );
 };
