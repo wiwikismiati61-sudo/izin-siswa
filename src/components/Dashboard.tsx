@@ -1,27 +1,6 @@
 import React, { useMemo } from 'react';
 import { 
-  LayoutDashboard, 
-  ClipboardList, 
-  FileText, 
-  UserX, 
-  LogOut, 
-  Upload, 
-  Download, 
-  Save, 
-  Trash2,
-  Pencil,
-  
-  X,
-  Users,
-  AlertTriangle,
-  HeartPulse,
-  FileCheck2,
-  Printer,
-  Check,
-  RotateCcw,
-  
-  
-  Menu
+  Users
 } from 'lucide-react';
 import { 
   PieChart, 
@@ -44,26 +23,6 @@ const ABJAD_LIST = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 const COLORS = ['#10b981', '#f59e0b', '#f43f5e']; // Sakit, Izin, Alpha
 
 // Helper Components
-const ActionLabel: React.FC<{
-  label: string;
-  accept: string;
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  icon: React.ReactNode;
-  variant?: string;
-}> = ({ label, accept, onChange, icon, variant }) => {
-  const baseClass = "px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer transition-all border shadow-sm";
-  const colorClass = variant === 'emerald' 
-    ? 'bg-white border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:border-emerald-300' 
-    : 'bg-white border-indigo-200 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300';
-  
-  return (
-    <label className={`${baseClass} ${colorClass}`}>
-      {icon} {label}
-      <input type="file" accept={accept} onChange={onChange} className="hidden" />
-    </label>
-  );
-};
-
 const StatCard: React.FC<{
   label: string;
   value: number;
@@ -93,10 +52,6 @@ const StatCard: React.FC<{
 interface DashboardProps {
   dataAbsensi: AbsensiEntry[];
   masterSiswa: Siswa[];
-  handleImportSiswa: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  handleRestore: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  handleExportExcel: () => void;
-  handleBackup: () => void;
   dashboardSelectedClass: string;
   setDashboardSelectedClass: (kelas: string) => void;
 }
@@ -104,10 +59,6 @@ interface DashboardProps {
 const Dashboard: React.FC<DashboardProps> = ({ 
   dataAbsensi, 
   masterSiswa, 
-  handleImportSiswa, 
-  handleRestore, 
-  handleExportExcel, 
-  handleBackup,
   dashboardSelectedClass,
   setDashboardSelectedClass
 }) => {
@@ -171,27 +122,6 @@ const Dashboard: React.FC<DashboardProps> = ({
         <div>
           <h2 className="text-2xl font-black text-slate-900">Ringkasan Data</h2>
           <p className="text-slate-500 text-xs font-medium">Analitik kehadiran dan total data absensi</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <ActionLabel 
-            label="Impor Siswa" 
-            accept=".xlsx, .xls" 
-            onChange={handleImportSiswa} 
-            icon={<Upload size={14} />} 
-          />
-          <ActionLabel 
-            label="Restore" 
-            accept=".json" 
-            variant="emerald" 
-            onChange={handleRestore} 
-            icon={<Save size={14} />} 
-          />
-          <button onClick={handleExportExcel} className="bg-white border border-indigo-200 text-indigo-700 p-2 px-3 rounded-lg text-xs font-bold flex items-center gap-2 hover:bg-indigo-50 hover:border-indigo-300 shadow-sm transition-all">
-            <Download size={14} /> Ekspor Excel
-          </button>
-          <button onClick={handleBackup} className="bg-slate-800 border border-slate-800 text-white p-2 px-3 rounded-lg text-xs font-bold flex items-center gap-2 hover:bg-slate-900 shadow-sm transition-all">
-            <Save size={14} /> Backup JSON
-          </button>
         </div>
       </div>
 

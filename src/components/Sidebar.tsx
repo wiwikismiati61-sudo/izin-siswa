@@ -1,13 +1,15 @@
 import React from 'react';
-import { LayoutDashboard, ClipboardList, FileText, AlertTriangle, LogOut, FileCheck2, X } from 'lucide-react';
+import { LayoutDashboard, ClipboardList, FileText, AlertTriangle, LogOut, FileCheck2, X, Database } from 'lucide-react';
 
 interface SidebarProps {
   activeTab: string;
-  setActiveTab: (tab: 'dashboard' | 'input' | 'report' | 'peringatan') => void;
+  setActiveTab: (tab: 'dashboard' | 'input' | 'report' | 'peringatan' | 'master') => void;
   editingEntry: any;
   badgeCount: number;
   isSidebarOpen: boolean;
   setIsSidebarOpen: (isOpen: boolean) => void;
+  isLoggedIn: boolean;
+  onLogout: () => void;
 }
 
 const SidebarLink: React.FC<{
@@ -33,7 +35,7 @@ const SidebarLink: React.FC<{
   </button>
 );
 
-const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, editingEntry, badgeCount, isSidebarOpen, setIsSidebarOpen }) => {
+const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, editingEntry, badgeCount, isSidebarOpen, setIsSidebarOpen, isLoggedIn, onLogout }) => {
   return (
     <aside className={`fixed inset-y-0 left-0 z-50 w-[240px] bg-white border-r border-slate-200 p-4 flex flex-col justify-between transform ${isSidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'} transition-all duration-300 ease-in-out md:relative md:translate-x-0 md:shadow-none md:flex-shrink-0 h-screen overflow-y-auto`}>
       <div>
@@ -83,9 +85,27 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, editingEntry
               label="Peringatan"
               badge={badgeCount > 0 ? badgeCount : undefined}
             />
+            <SidebarLink 
+              active={activeTab === 'master'} 
+              onClick={() => { setActiveTab('master'); setIsSidebarOpen(false); }} 
+              icon={<Database size={18} />} 
+              label="Master Data"
+            />
           </nav>
         </div>
       </div>
+      
+      {isLoggedIn && (
+        <div className="pt-4 border-t border-slate-100">
+          <button 
+            onClick={onLogout} 
+            className="flex items-center gap-3 w-full p-3 text-sm text-rose-600 font-bold hover:bg-rose-50 rounded-lg transition-colors group"
+          >
+            <LogOut size={18} className="group-hover:-translate-x-1 transition-transform" />
+            Keluar Sistem
+          </button>
+        </div>
+      )}
     </aside>
   );
 };

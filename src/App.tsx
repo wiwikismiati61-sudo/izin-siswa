@@ -6,11 +6,16 @@ import Dashboard from './components/Dashboard';
 import InputForm from './components/InputForm';
 import ReportTable from './components/ReportTable';
 import Peringatan from './components/Peringatan';
+import MasterData from './components/MasterData';
+import Login from './components/Login';
 import { Menu, Trash2 } from 'lucide-react';
 
 const App: React.FC = () => {
+  // Authentication State
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
   // Data State
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'input' | 'report' | 'peringatan'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'input' | 'report' | 'peringatan' | 'master'>('dashboard');
   const [masterSiswa, setMasterSiswa] = useState<Siswa[]>([]);
   const [dataAbsensi, setDataAbsensi] = useState<AbsensiEntry[]>([]);
   const [editingEntry, setEditingEntry] = useState<AbsensiEntry | null>(null);
@@ -219,6 +224,11 @@ const App: React.FC = () => {
     setActiveTab('report');
   };
 
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setActiveTab('dashboard');
+  };
+
   const sakitWarningCount = getSakitWarningData().length;
   const izinWarningCount = getIzinWarningData().length;
   const panggilanCount = getPanggilanData().length;
@@ -233,6 +243,8 @@ const App: React.FC = () => {
         badgeCount={badgeCount}
         isSidebarOpen={isSidebarOpen}
         setIsSidebarOpen={setIsSidebarOpen}
+        isLoggedIn={isLoggedIn}
+        onLogout={handleLogout}
       />
 
       {isSidebarOpen && <div onClick={() => setIsSidebarOpen(false)} className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 md:hidden transition-opacity"></div>}
@@ -251,53 +263,66 @@ const App: React.FC = () => {
             <Dashboard 
               dataAbsensi={dataAbsensi}
               masterSiswa={masterSiswa}
-              handleImportSiswa={handleImportSiswa}
-              handleRestore={handleRestore}
-              handleExportExcel={handleExportExcel}
-              handleBackup={handleBackup}
               dashboardSelectedClass={dashboardSelectedClass}
               setDashboardSelectedClass={setDashboardSelectedClass}
             />
           )}
 
-          {activeTab === 'input' && (
-            <InputForm 
-              masterSiswa={masterSiswa} 
-              editingEntry={editingEntry}
-              onCancel={() => {
-                setEditingEntry(null);
-                setActiveTab('report');
-              }}
-              onSave={handleSaveAbsensi} 
-            />
+          {activeTab !== 'dashboard' && !isLoggedIn && (
+            <Login onLogin={() => setIsLoggedIn(true)} />
           )}
 
-          {activeTab === 'report' && (
-            <ReportTable 
-              data={dataAbsensi}
-              masterSiswa={masterSiswa} 
-              onEdit={handleEditClick}
-              onDelete={(id) => {
-                setPendingDeleteId(id);
-                setIsDeleteAll(false);
-                setShowConfirmModal(true);
-              }} 
-              onClearAll={() => {
-                setIsDeleteAll(true);
-                setShowConfirmModal(true);
-              }}
-              onViewEvidence={(src) => setSelectedImage(src)}
-              onImport={handleImportAbsensi}
-            />
-          )}
+          {activeTab !== 'dashboard' && isLoggedIn && (
+            <>
+              {activeTab === 'input' && (
+                <InputForm 
+                  masterSiswa={masterSiswa} 
+                  editingEntry={editingEntry}
+                  onCancel={() => {
+                    setEditingEntry(null);
+                    setActiveTab('report');
+                  }}
+                  onSave={handleSaveAbsensi} 
+                />
+              )}
 
-          {activeTab === 'peringatan' && (
-            <Peringatan 
-              sakitWarningData={getSakitWarningData()}
-              izinWarningData={getIzinWarningData()}
-              panggilanData={getPanggilanData()}
-              setStudentForPrint={setStudentForPrint}
-            />
+              {activeTab === 'report' && (
+                <ReportTable 
+                  data={dataAbsensi}
+                  masterSiswa={masterSiswa} 
+                  onEdit={handleEditClick}
+                  onDelete={(id) => {
+                    setPendingDeleteId(id);
+                    setIsDeleteAll(false);
+                    setShowConfirmModal(true);
+                  }} 
+                  onClearAll={() => {
+                    setIsDeleteAll(true);
+                    setShowConfirmModal(true);
+                  }}
+                  onViewEvidence={(src) => setSelectedImage(src)}
+                  onImport={handleImportAbsensi}
+                />
+              )}
+
+              {activeTab === 'peringatan' && (
+                <Peringatan 
+                  sakitWarningData={getSakitWarningData()}
+                  izinWarningData={getIzinWarningData()}
+                  panggilanData={getPanggilanData()}
+                  setStudentForPrint={setStudentForPrint}
+                />
+              )}
+
+              {activeTab === 'master' && (
+                <MasterData
+                  handleImportSiswa={handleImportSiswa}
+                  handleRestore={handleRestore}
+                  handleExportExcel={handleExportExcel}
+                  handleBackup={handleBackup}
+                />
+              )}
+            </>
           )}
         </main>
 
