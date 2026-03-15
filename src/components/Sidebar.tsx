@@ -1,5 +1,7 @@
 import React from 'react';
 import { LayoutDashboard, ClipboardList, FileText, AlertTriangle, LogOut, FileCheck2, X, Database } from 'lucide-react';
+import { auth } from '../firebase';
+import { signOut } from 'firebase/auth';
 
 interface SidebarProps {
   activeTab: string;
@@ -36,6 +38,16 @@ const SidebarLink: React.FC<{
 );
 
 const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, editingEntry, badgeCount, isSidebarOpen, setIsSidebarOpen, isLoggedIn, onLogout }) => {
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      onLogout();
+    } catch (err) {
+      console.error("Logout Error:", err);
+      onLogout(); // Still call onLogout to clear local state
+    }
+  };
+
   return (
     <aside className={`fixed inset-y-0 left-0 z-50 w-[240px] bg-white border-r border-slate-200 p-4 flex flex-col justify-between transform ${isSidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'} transition-all duration-300 ease-in-out md:relative md:translate-x-0 md:shadow-none md:flex-shrink-0 h-screen overflow-y-auto`}>
       <div>
@@ -98,7 +110,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, editingEntry
       {isLoggedIn && (
         <div className="pt-4 border-t border-slate-100">
           <button 
-            onClick={onLogout} 
+            onClick={handleLogout} 
             className="flex items-center gap-3 w-full p-3 text-sm text-rose-600 font-bold hover:bg-rose-50 rounded-lg transition-colors group"
           >
             <LogOut size={18} className="group-hover:-translate-x-1 transition-transform" />

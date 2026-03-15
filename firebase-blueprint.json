@@ -1,0 +1,64 @@
+{
+  "entities": {
+    "Siswa": {
+      "title": "Siswa",
+      "description": "Data master siswa",
+      "type": "object",
+      "properties": {
+        "Nama": {
+          "type": "string",
+          "description": "Nama lengkap siswa"
+        },
+        "Kelas": {
+          "type": "string",
+          "description": "Kelas siswa"
+        }
+      },
+      "required": ["Nama", "Kelas"]
+    },
+    "AbsensiEntry": {
+      "title": "AbsensiEntry",
+      "description": "Log absensi harian",
+      "type": "object",
+      "properties": {
+        "tanggal": {
+          "type": "string",
+          "description": "Tanggal absensi (YYYY-MM-DD)"
+        },
+        "nama": {
+          "type": "string",
+          "description": "Nama siswa"
+        },
+        "kelas": {
+          "type": "string",
+          "description": "Kelas siswa"
+        },
+        "keterangan": {
+          "type": "string",
+          "enum": ["Sakit", "Izin", "Alpha"],
+          "description": "Status kehadiran"
+        },
+        "bukti": {
+          "type": "string",
+          "description": "URL bukti (jika ada)"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Waktu pembuatan data"
+        }
+      },
+      "required": ["tanggal", "nama", "kelas", "keterangan"]
+    }
+  },
+  "firestore": {
+    "/master_siswa/{siswaId}": {
+      "schema": "Siswa",
+      "description": "Koleksi data master siswa"
+    },
+    "/absensi_log/{absensiId}": {
+      "schema": "AbsensiEntry",
+      "description": "Koleksi log absensi harian"
+    }
+  }
+}

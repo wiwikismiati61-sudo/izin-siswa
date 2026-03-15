@@ -64,9 +64,9 @@ const InputForm: React.FC<InputFormProps> = ({ masterSiswa, editingEntry, onCanc
       return;
     }
     onSave({
-      id: editingEntry ? editingEntry.id : Date.now().toString(),
+      ...(editingEntry ? { id: editingEntry.id } : {}),
       ...form
-    });
+    } as AbsensiEntry);
   };
 
   return (

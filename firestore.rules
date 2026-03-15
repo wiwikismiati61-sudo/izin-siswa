@@ -1,0 +1,80 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: master_siswa
+    // Fields:
+    //   - Nama: string (required)
+    //   - Kelas: string (required)
+    //
+    // Collection: absensi_log
+    // Fields:
+    //   - id: string (required)
+    //   - tanggal: string (required, YYYY-MM-DD)
+    //   - nama: string (required)
+    //   - kelas: string (required)
+    //   - keterangan: string (required, Sakit/Izin/Alpha)
+    //   - bukti: string (optional)
+    //   - createdAt: timestamp (optional)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "wiwikismiati61@guru.smp.belajar.id" && request.auth.token.email_verified == true));
+    }
+
+    function isValidSiswa(data) {
+      return data.keys().hasAll(['Nama', 'Kelas']) &&
+             data.Nama is string && data.Nama.size() > 0 && data.Nama.size() < 100 &&
+             data.Kelas is string && data.Kelas.size() > 0 && data.Kelas.size() < 20;
+    }
+
+    function isValidAbsensi(data) {
+      return data.keys().hasAll(['tanggal', 'nama', 'kelas', 'keterangan']) &&
+             data.tanggal is string && data.tanggal.matches("^\\d{4}-\\d{2}-\\d{2}$") &&
+             data.nama is string && data.nama.size() > 0 && data.nama.size() < 100 &&
+             data.kelas is string && data.kelas.size() > 0 && data.kelas.size() < 20 &&
+             data.keterangan in ['Sakit', 'Izin', 'Alpha', ''];
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    match /master_siswa/{siswaId} {
+      // Public read for dashboard charts, Admin only write
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /absensi_log/{absensiId} {
+      // Dashboard needs public read as per user request "membuka dashboard tidak perlu login"
+      allow read: if true; 
+      // Only admin can write
+      allow write: if isAdmin();
+    }
+
+    match /users/{userId} {
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      allow write: if isAdmin();
+    }
+  }
+}

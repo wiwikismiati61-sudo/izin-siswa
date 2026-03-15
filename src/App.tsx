@@ -9,10 +9,27 @@ import Peringatan from './components/Peringatan';
 import MasterData from './components/MasterData';
 import Login from './components/Login';
 import { Menu, Trash2 } from 'lucide-react';
+import { db, auth, handleFirestoreError, OperationType } from './firebase';
+import { 
+  collection, 
+  onSnapshot, 
+  addDoc, 
+  updateDoc, 
+  deleteDoc, 
+  doc, 
+  setDoc, 
+  writeBatch, 
+  getDocs, 
+  query, 
+  orderBy,
+  serverTimestamp
+} from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 
 const App: React.FC = () => {
   // Authentication State
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isAuthReady, setIsAuthReady] = useState(false);
 
   // Data State
   const [activeTab, setActiveTab] = useState<'dashboard' | 'input' | 'report' | 'peringatan' | 'master'>('dashboard');
@@ -29,23 +46,89 @@ const App: React.FC = () => {
   const [studentForPrint, setStudentForPrint] = useState<any | null>(null); // Ganti `any` dengan tipe yang sesuai
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  // Load Initial Data
+  // Auth Listener
   useEffect(() => {
-    try {
-      const savedAbsensi = localStorage.getItem('absensi_log_data');
-      const savedSiswa = localStorage.getItem('absensi_master_siswa');
-      if (savedAbsensi) setDataAbsensi(JSON.parse(savedAbsensi));
-      if (savedSiswa) setMasterSiswa(JSON.parse(savedSiswa));
-    } catch (error) {
-      console.error("Gagal memuat data dari localStorage", error);
-    }
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setIsLoggedIn(!!user);
+      setIsAuthReady(true);
+    });
+    return () => unsubscribe();
   }, []);
 
-  // Sync Data to Local Storage
+  // Data Migration & Sync
   useEffect(() => {
-    localStorage.setItem('absensi_log_data', JSON.stringify(dataAbsensi));
-    localStorage.setItem('absensi_master_siswa', JSON.stringify(masterSiswa));
-  }, [dataAbsensi, masterSiswa]);
+    if (!isAuthReady) return;
+
+    // 1. Migration Logic
+    const migrateData = async () => {
+      const savedAbsensi = localStorage.getItem('absensi_log_data');
+      const savedSiswa = localStorage.getItem('absensi_master_siswa');
+      
+      if (savedSiswa) {
+        try {
+          const siswaData: Siswa[] = JSON.parse(savedSiswa);
+          const batch = writeBatch(db);
+          siswaData.forEach((s) => {
+            const newDoc = doc(collection(db, 'master_siswa'));
+            batch.set(newDoc, s);
+          });
+          await batch.commit();
+          localStorage.removeItem('absensi_master_siswa');
+          console.log("Migration: Master Siswa migrated to Firebase");
+        } catch (err) {
+          console.error("Migration Error (Siswa):", err);
+        }
+      }
+
+      if (savedAbsensi) {
+        try {
+          const absensiData: AbsensiEntry[] = JSON.parse(savedAbsensi);
+          const batch = writeBatch(db);
+          absensiData.forEach((entry) => {
+            const newDoc = doc(collection(db, 'absensi_log'));
+            const { id, ...rest } = entry;
+            batch.set(newDoc, { ...rest, createdAt: serverTimestamp() });
+          });
+          await batch.commit();
+          localStorage.removeItem('absensi_log_data');
+          console.log("Migration: Absensi Log migrated to Firebase");
+        } catch (err) {
+          console.error("Migration Error (Absensi):", err);
+        }
+      }
+    };
+
+    if (isLoggedIn && auth.currentUser) {
+      migrateData();
+    }
+
+    // 2. Real-time Listeners
+    const qAbsensi = query(collection(db, 'absensi_log'), orderBy('tanggal', 'desc'));
+    const unsubAbsensi = onSnapshot(qAbsensi, (snapshot) => {
+      const entries = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as AbsensiEntry[];
+      setDataAbsensi(entries);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'absensi_log');
+    });
+
+    const unsubSiswa = onSnapshot(collection(db, 'master_siswa'), (snapshot) => {
+      const siswa = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Siswa[];
+      setMasterSiswa(siswa);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'master_siswa');
+    });
+
+    return () => {
+      unsubAbsensi();
+      unsubSiswa();
+    };
+  }, [isAuthReady, isLoggedIn]);
 
   const getPanggilanData = () => {
     const alphaMap: Record<string, { name: string; kelas: string; count: number }> = {};
@@ -83,39 +166,49 @@ const App: React.FC = () => {
       return Object.values(countMap).filter(s => s.count > 4);
   };
 
-  const handleImportSiswa = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImportSiswa = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (evt) => {
+    reader.onload = async (evt) => {
       if (!evt.target?.result) return;
       const workbook = XLSX.read(evt.target.result, { type: 'binary' });
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       const json = XLSX.utils.sheet_to_json<Siswa>(sheet);
       const formatted = json.map(s => ({
         Nama: s.Nama || s.nama,
-        Kelas: s.Kelas || s.kelas
+        Kelas: String(s.Kelas || s.kelas)
       }));
-      setMasterSiswa(formatted);
-      alert('Impor Berhasil!');
+      
+      try {
+        const batch = writeBatch(db);
+        formatted.forEach(s => {
+          const newDoc = doc(collection(db, 'master_siswa'));
+          batch.set(newDoc, s);
+        });
+        await batch.commit();
+        alert('Impor Berhasil!');
+      } catch (error) {
+        handleFirestoreError(error, OperationType.WRITE, 'master_siswa');
+      }
       e.target.value = '';
     };
     reader.readAsBinaryString(file);
   };
 
-  const handleImportAbsensi = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImportAbsensi = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (evt) => {
+    reader.onload = async (evt) => {
         if (!evt.target?.result) return;
         const workbook = XLSX.read(evt.target.result, { type: 'binary' });
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
         const json = XLSX.utils.sheet_to_json<AbsensiEntry>(sheet, { raw: false, defval: '' });
 
-        const newEntries: AbsensiEntry[] = [];
+        const newEntries: any[] = [];
         const existingEntries = new Set(dataAbsensi.map(d => `${d.tanggal}|${d.nama}`));
 
         json.forEach((row, index) => {
@@ -124,32 +217,37 @@ const App: React.FC = () => {
             const kelas = row.Kelas || '';
             const status = (row.Status || '') as KeteranganStatus;
 
-            if (!tanggal || !nama || !kelas || !status) {
-                console.warn(`Skipping invalid row at index ${index}:`, row);
-                return;
-            }
+            if (!tanggal || !nama || !kelas || !status) return;
 
             const key = `${tanggal}|${nama}`;
             if (!existingEntries.has(key)) {
                 newEntries.push({
-                    id: `${Date.now()}_${index}`,
                     tanggal,
                     nama,
                     kelas: String(kelas),
                     keterangan: status,
-                    bukti: null
+                    bukti: null,
+                    createdAt: serverTimestamp()
                 });
                 existingEntries.add(key);
             }
         });
 
         if (newEntries.length > 0) {
-            setDataAbsensi(prev => [...newEntries, ...prev]);
-            alert(`${newEntries.length} data baru berhasil diimpor!`);
+            try {
+              const batch = writeBatch(db);
+              newEntries.forEach(entry => {
+                const newDoc = doc(collection(db, 'absensi_log'));
+                batch.set(newDoc, entry);
+              });
+              await batch.commit();
+              alert(`${newEntries.length} data baru berhasil diimpor!`);
+            } catch (error) {
+              handleFirestoreError(error, OperationType.WRITE, 'absensi_log');
+            }
         } else {
             alert("Tidak ada data baru untuk diimpor atau semua data sudah ada.");
         }
-        
         e.target.value = ''; 
     };
     reader.readAsBinaryString(file);
@@ -165,19 +263,34 @@ const App: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
-  const handleRestore = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleRestore = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (evt) => {
+    reader.onload = async (evt) => {
       if (!evt.target?.result) return;
       try {
         const res = JSON.parse(evt.target.result as string);
-        if (res.absensi) setDataAbsensi(res.absensi);
-        if (res.master) setMasterSiswa(res.master);
+        const batch = writeBatch(db);
+        
+        if (res.master) {
+          res.master.forEach((s: any) => {
+            const newDoc = doc(collection(db, 'master_siswa'));
+            batch.set(newDoc, s);
+          });
+        }
+        if (res.absensi) {
+          res.absensi.forEach((entry: any) => {
+            const newDoc = doc(collection(db, 'absensi_log'));
+            const { id, ...rest } = entry;
+            batch.set(newDoc, { ...rest, createdAt: serverTimestamp() });
+          });
+        }
+        await batch.commit();
         alert('Data Berhasil Dipulihkan!');
-      } catch {
-        alert('File tidak valid');
+      } catch (error) {
+        alert('File tidak valid atau gagal memulihkan data');
+        console.error(error);
       }
       e.target.value = '';
     };
@@ -196,11 +309,18 @@ const App: React.FC = () => {
     XLSX.writeFile(wb, `Laporan_Absensi_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
-  const executeDelete = () => {
-    if (isDeleteAll) {
-      setDataAbsensi([]);
-    } else if (pendingDeleteId) {
-      setDataAbsensi(prev => prev.filter(item => item.id !== pendingDeleteId));
+  const executeDelete = async () => {
+    try {
+      if (isDeleteAll) {
+        const batch = writeBatch(db);
+        const snapshot = await getDocs(collection(db, 'absensi_log'));
+        snapshot.docs.forEach(doc => batch.delete(doc.ref));
+        await batch.commit();
+      } else if (pendingDeleteId) {
+        await deleteDoc(doc(db, 'absensi_log', pendingDeleteId));
+      }
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, 'absensi_log');
     }
     setShowConfirmModal(false);
     setPendingDeleteId(null);
@@ -212,16 +332,22 @@ const App: React.FC = () => {
     setActiveTab('input');
   };
 
-  const handleSaveAbsensi = (entry: AbsensiEntry) => {
-    setDataAbsensi(prev => {
-      const exists = prev.find(item => item.id === entry.id);
-      if (exists) {
-        return prev.map(item => item.id === entry.id ? entry : item);
+  const handleSaveAbsensi = async (entry: AbsensiEntry) => {
+    try {
+      if (entry.id) {
+        const { id, ...data } = entry;
+        await updateDoc(doc(db, 'absensi_log', id), data);
+      } else {
+        await addDoc(collection(db, 'absensi_log'), {
+          ...entry,
+          createdAt: serverTimestamp()
+        });
       }
-      return [entry, ...prev];
-    });
-    setEditingEntry(null);
-    setActiveTab('report');
+      setEditingEntry(null);
+      setActiveTab('report');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'absensi_log');
+    }
   };
 
   const handleLogout = () => {
