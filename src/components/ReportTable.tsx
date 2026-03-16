@@ -24,14 +24,26 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
   const [filterStudent, setFilterStudent] = useState('');
   const [filterDate, setFilterDate] = useState('');
   const [selectedClass, setSelectedClass] = useState('');
+  const [summaryStartDate, setSummaryStartDate] = useState('');
+  const [summaryEndDate, setSummaryEndDate] = useState('');
 
   const studentSummary = useMemo(() => {
     if (!selectedClass) return [];
 
     const studentsInClass = masterSiswa.filter(s => String(s.Kelas) === selectedClass);
     
-    return studentsInClass.map(student => {
-      const studentAbsences = data.filter(d => d.nama === student.Nama && String(d.kelas) === selectedClass);
+    // Get unique students by name to avoid duplicates in the summary table
+    const uniqueStudentNames = Array.from(new Set(studentsInClass.map(s => s.Nama)));
+    const uniqueStudents = uniqueStudentNames.map(name => studentsInClass.find(s => s.Nama === name)!);
+
+    return uniqueStudents.map(student => {
+      const studentAbsences = data.filter(d => {
+        const matchName = d.nama === student.Nama;
+        const matchClass = String(d.kelas) === selectedClass;
+        const matchStartDate = summaryStartDate ? d.tanggal >= summaryStartDate : true;
+        const matchEndDate = summaryEndDate ? d.tanggal <= summaryEndDate : true;
+        return matchName && matchClass && matchStartDate && matchEndDate;
+      });
       
       const sakit = studentAbsences.filter(d => d.keterangan === 'Sakit').length;
       const izin = studentAbsences.filter(d => d.keterangan === 'Izin').length;
@@ -45,12 +57,15 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
         total: sakit + izin + alpha,
       };
     }).sort((a, b) => a.nama.localeCompare(b.nama));
-  }, [selectedClass, masterSiswa, data]);
+  }, [selectedClass, masterSiswa, data, summaryStartDate, summaryEndDate]);
 
   const studentsInSelectedFilterClass = useMemo(() => {
     if (!filterClass) return [];
-    return masterSiswa
-        .filter(s => String(s.Kelas) === filterClass)
+    const filtered = masterSiswa.filter(s => String(s.Kelas) === filterClass);
+    // Get unique students by name
+    const uniqueNames = Array.from(new Set(filtered.map(s => s.Nama)));
+    return uniqueNames
+        .map(name => filtered.find(s => s.Nama === name)!)
         .sort((a, b) => a.Nama.localeCompare(b.Nama));
   }, [filterClass, masterSiswa]);
 
@@ -136,7 +151,24 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
                     <h3 className="text-xl font-black text-slate-800">Rekapitulasi Absensi per Siswa</h3>
                     <p className="text-slate-500 text-sm font-medium">Pilih kelas untuk melihat rincian per siswa.</p>
                 </div>
-                <div className="flex items-center gap-2 w-full md:w-auto">
+                <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                    <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl border border-slate-200">
+                        <input 
+                            type="date"
+                            value={summaryStartDate}
+                            onChange={e => setSummaryStartDate(e.target.value)}
+                            className="p-1.5 bg-transparent text-xs font-bold text-slate-600 outline-none cursor-pointer"
+                            title="Tanggal Mulai"
+                        />
+                        <span className="text-slate-300 font-black">-</span>
+                        <input 
+                            type="date"
+                            value={summaryEndDate}
+                            onChange={e => setSummaryEndDate(e.target.value)}
+                            className="p-1.5 bg-transparent text-xs font-bold text-slate-600 outline-none cursor-pointer"
+                            title="Tanggal Akhir"
+                        />
+                    </div>
                     <select 
                         value={selectedClass}
                         onChange={e => setSelectedClass(e.target.value)}
