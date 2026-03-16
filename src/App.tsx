@@ -43,6 +43,7 @@ const App: React.FC = () => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [isDeleteAll, setIsDeleteAll] = useState(false);
+  const [isDeleteDuplicates, setIsDeleteDuplicates] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [studentForPrint, setStudentForPrint] = useState<any | null>(null); // Ganti `any` dengan tipe yang sesuai
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -317,6 +318,30 @@ const App: React.FC = () => {
         const snapshot = await getDocs(collection(db, 'absensi_log'));
         snapshot.docs.forEach(doc => batch.delete(doc.ref));
         await batch.commit();
+      } else if (isDeleteDuplicates) {
+        const seen = new Set<string>();
+        const toDelete: string[] = [];
+        
+        // dataAbsensi is sorted by date desc
+        dataAbsensi.forEach(entry => {
+          const key = `${entry.tanggal}|${entry.nama}`;
+          if (seen.has(key)) {
+            if (entry.id) toDelete.push(entry.id);
+          } else {
+            seen.add(key);
+          }
+        });
+
+        if (toDelete.length > 0) {
+          const batch = writeBatch(db);
+          toDelete.forEach(id => {
+            batch.delete(doc(db, 'absensi_log', id));
+          });
+          await batch.commit();
+          alert(`${toDelete.length} data ganda berhasil dihapus.`);
+        } else {
+          alert('Tidak ditemukan data ganda.');
+        }
       } else if (pendingDeleteId) {
         await deleteDoc(doc(db, 'absensi_log', pendingDeleteId));
       }
@@ -326,6 +351,7 @@ const App: React.FC = () => {
     setShowConfirmModal(false);
     setPendingDeleteId(null);
     setIsDeleteAll(false);
+    setIsDeleteDuplicates(false);
   };
 
   const handleEditClick = (entry: AbsensiEntry) => {
@@ -407,6 +433,12 @@ const App: React.FC = () => {
               }} 
               onClearAll={() => {
                 setIsDeleteAll(true);
+                setIsDeleteDuplicates(false);
+                setShowConfirmModal(true);
+              }}
+              onDeleteDuplicates={() => {
+                setIsDeleteDuplicates(true);
+                setIsDeleteAll(false);
                 setShowConfirmModal(true);
               }}
               onViewEvidence={(src) => setSelectedImage(src)}
@@ -465,8 +497,14 @@ const App: React.FC = () => {
               <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-full mx-auto mb-4 flex items-center justify-center">
                 <Trash2 size={32} />
               </div>
-              <h3 className="text-xl font-black text-slate-900 mb-2">{isDeleteAll ? 'Hapus Semua Data?' : 'Hapus Data?'}</h3>
-              <p className="text-slate-500 text-sm mb-6">Tindakan ini tidak dapat dibatalkan dan akan menghapus data dari memori lokal.</p>
+              <h3 className="text-xl font-black text-slate-900 mb-2">
+                {isDeleteAll ? 'Hapus Semua Data?' : isDeleteDuplicates ? 'Hapus Data Ganda?' : 'Hapus Data?'}
+              </h3>
+              <p className="text-slate-500 text-sm mb-6">
+                {isDeleteDuplicates 
+                  ? 'Sistem akan menyisakan satu data untuk setiap siswa pada tanggal yang sama.' 
+                  : 'Tindakan ini tidak dapat dibatalkan dan akan menghapus data dari database.'}
+              </p>
               <div className="flex gap-3">
                 <button 
                   onClick={() => setShowConfirmModal(false)}

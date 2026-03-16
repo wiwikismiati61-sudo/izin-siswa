@@ -15,10 +15,11 @@ interface ReportTableProps {
   onClearAll: () => void;
   onViewEvidence: (src: string) => void;
   onImport: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onDeleteDuplicates: () => void;
   isLoggedIn: boolean;
 }
 
-const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, onDelete, onClearAll, onViewEvidence, onImport, isLoggedIn }) => {
+const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, onDelete, onClearAll, onViewEvidence, onImport, onDeleteDuplicates, isLoggedIn }) => {
   const [filterClass, setFilterClass] = useState('');
   const [filterStudent, setFilterStudent] = useState('');
   const [filterDate, setFilterDate] = useState('');
@@ -94,20 +95,38 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
                <h2 className="text-3xl font-black text-slate-900">Laporan Absensi</h2>
                <p className="text-slate-500 text-sm font-medium">Kelola dan lihat rincian data kehadiran siswa</p>
             </div>
-            {isLoggedIn && (
-              <div className="flex flex-wrap gap-2">
-                   <label className="bg-white border border-indigo-200 text-indigo-700 p-2.5 px-4 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer hover:bg-indigo-50 hover:border-indigo-300 shadow-sm transition-all">
-                      <Upload size={14} /> Impor
-                      <input type="file" accept=".xlsx, .xls" onChange={onImport} className="hidden" />
-                   </label>
-                   <button 
-                     onClick={onClearAll}
-                     className="bg-white border border-rose-200 text-rose-600 p-2.5 px-4 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-rose-50 hover:border-rose-300 shadow-sm transition-all"
-                   >
-                      <Trash2 size={14} /> Hapus Semua
-                   </button>
-              </div>
-            )}
+            <div className="flex flex-wrap gap-2">
+                 <label className={`p-2.5 px-4 rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition-all ${
+                   isLoggedIn 
+                     ? "bg-white border border-indigo-200 text-indigo-700 cursor-pointer hover:bg-indigo-50 hover:border-indigo-300" 
+                     : "bg-slate-50 border border-slate-200 text-slate-400 cursor-not-allowed"
+                 }`}>
+                    <Upload size={14} /> Impor
+                    <input type="file" accept=".xlsx, .xls" onChange={onImport} className="hidden" disabled={!isLoggedIn} />
+                 </label>
+                 <button 
+                   onClick={onDeleteDuplicates}
+                   disabled={!isLoggedIn}
+                   className={`p-2.5 px-4 rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition-all ${
+                     isLoggedIn 
+                       ? "bg-white border border-amber-200 text-amber-600 hover:bg-amber-50 hover:border-amber-300" 
+                       : "bg-slate-50 border border-slate-200 text-slate-400 cursor-not-allowed"
+                   }`}
+                 >
+                    <RotateCcw size={14} /> Hapus Data Ganda
+                 </button>
+                 <button 
+                   onClick={onClearAll}
+                   disabled={!isLoggedIn}
+                   className={`p-2.5 px-4 rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition-all ${
+                     isLoggedIn 
+                       ? "bg-white border border-rose-200 text-rose-600 hover:bg-rose-50 hover:border-rose-300" 
+                       : "bg-slate-50 border border-slate-200 text-slate-400 cursor-not-allowed"
+                   }`}
+                 >
+                    <Trash2 size={14} /> Hapus Semua
+                 </button>
+            </div>
         </div>
 
         {/* NEW SECTION: Student Summary Table */}
