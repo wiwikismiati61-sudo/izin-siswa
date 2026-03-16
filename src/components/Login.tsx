@@ -22,9 +22,13 @@ const Login: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
       } else {
         onLogin();
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Google Login Error:", err);
-      setError("Gagal login dengan Google. Pastikan koneksi internet stabil.");
+      if (err.code === 'auth/unauthorized-domain') {
+        setError("Domain ini belum terdaftar di Firebase Console. Silakan tambahkan 'izin-siswa.vercel.app' ke Authorized Domains di Firebase Auth.");
+      } else {
+        setError("Gagal login dengan Google. Pastikan koneksi internet stabil.");
+      }
     } finally {
       setLoading(false);
     }

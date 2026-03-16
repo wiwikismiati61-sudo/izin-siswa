@@ -1,6 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
-  Users
+  Users,
+  Calendar
 } from 'lucide-react';
 import { 
   PieChart, 
@@ -62,31 +63,37 @@ const Dashboard: React.FC<DashboardProps> = ({
   dashboardSelectedClass,
   setDashboardSelectedClass
 }) => {
+  const today = new Date().toISOString().split('T')[0];
+  const [startDate, setStartDate] = useState(today);
+  const [endDate, setEndDate] = useState(today);
+  const [tableFilterClass, setTableFilterClass] = useState('');
+
+  const filteredData = useMemo(() => {
+    return dataAbsensi.filter(d => d.tanggal >= startDate && d.tanggal <= endDate);
+  }, [dataAbsensi, startDate, endDate]);
 
   const getStats = () => {
-    const today = new Date().toISOString().split('T')[0];
-    const todayLogs = dataAbsensi.filter(d => d.tanggal === today);
     return {
-      sakit: todayLogs.filter(d => d.keterangan === 'Sakit').length,
-      izin: todayLogs.filter(d => d.keterangan === 'Izin').length,
-      alpha: todayLogs.filter(d => d.keterangan === 'Alpha').length,
-      totalToday: todayLogs.length,
+      sakit: filteredData.filter(d => d.keterangan === 'Sakit').length,
+      izin: filteredData.filter(d => d.keterangan === 'Izin').length,
+      alpha: filteredData.filter(d => d.keterangan === 'Alpha').length,
+      totalInRange: filteredData.length,
       totalOverall: dataAbsensi.length
     };
   };
 
   const getChartData = () => {
     return [
-      { name: 'Sakit', value: dataAbsensi.filter(d => d.keterangan === 'Sakit').length },
-      { name: 'Izin', value: dataAbsensi.filter(d => d.keterangan === 'Izin').length },
-      { name: 'Alpha', value: dataAbsensi.filter(d => d.keterangan === 'Alpha').length },
+      { name: 'Sakit', value: filteredData.filter(d => d.keterangan === 'Sakit').length },
+      { name: 'Izin', value: filteredData.filter(d => d.keterangan === 'Izin').length },
+      { name: 'Alpha', value: filteredData.filter(d => d.keterangan === 'Alpha').length },
     ];
   };
 
   const getAbsensiPerKelasData = useMemo(() => {
     const classStats: Record<string, { kelas: string; Sakit: number; Izin: number; Alpha: number }> = {};
     
-    dataAbsensi.forEach(d => {
+    filteredData.forEach(d => {
       if (!classStats[d.kelas]) {
         classStats[d.kelas] = { kelas: d.kelas, Sakit: 0, Izin: 0, Alpha: 0 };
       }
@@ -98,39 +105,135 @@ const Dashboard: React.FC<DashboardProps> = ({
     return Object.values(classStats).sort((a, b) => 
       a.kelas.localeCompare(b.kelas, undefined, { numeric: true })
     );
-  }, [dataAbsensi]);
+  }, [filteredData]);
 
   const dashboardStudentSummary = useMemo(() => {
     if (!dashboardSelectedClass) return [];
     const studentsInClass = masterSiswa.filter(s => String(s.Kelas) === dashboardSelectedClass);
     return studentsInClass
       .map(student => {
-        const studentAbsences = dataAbsensi.filter(d => d.nama === student.Nama && d.kelas === dashboardSelectedClass);
+        const studentAbsences = filteredData.filter(d => d.nama === student.Nama && d.kelas === dashboardSelectedClass);
         const sakit = studentAbsences.filter(d => d.keterangan === 'Sakit').length;
         const izin = studentAbsences.filter(d => d.keterangan === 'Izin').length;
         const alpha = studentAbsences.filter(d => d.keterangan === 'Alpha').length;
         return { name: student.Nama, Sakit: sakit, Izin: izin, Alpha: alpha };
       })
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [dashboardSelectedClass, masterSiswa, dataAbsensi]);
+  }, [dashboardSelectedClass, masterSiswa, filteredData]);
+
+  const sortedAndFilteredTableData = useMemo(() => {
+    let result = [...filteredData];
+    
+    if (tableFilterClass) {
+      result = result.filter(d => d.kelas === tableFilterClass);
+    }
+    
+    return result.sort((a, b) => a.kelas.localeCompare(b.kelas, undefined, { numeric: true }));
+  }, [filteredData, tableFilterClass]);
 
   const stats = getStats();
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex flex-col md:flex-row justify-between items-start gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h2 className="text-2xl font-black text-slate-900">Ringkasan Data</h2>
           <p className="text-slate-500 text-xs font-medium">Analitik kehadiran dan total data absensi</p>
         </div>
+        
+        <div className="flex flex-wrap items-center gap-2 bg-white p-2 rounded-xl border border-slate-200 shadow-sm">
+          <div className="flex items-center gap-2 px-2 border-r border-slate-100">
+            <Calendar size={14} className="text-indigo-500" />
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Periode:</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <input 
+              type="date" 
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="p-1.5 px-2 bg-slate-50 border border-slate-100 rounded-lg text-[10px] font-bold text-slate-600 outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all"
+            />
+            <span className="text-slate-300 text-xs">-</span>
+            <input 
+              type="date" 
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="p-1.5 px-2 bg-slate-50 border border-slate-100 rounded-lg text-[10px] font-bold text-slate-600 outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all"
+            />
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        <StatCard label="Sakit (Hari Ini)" value={stats.sakit} color="emerald" />
-        <StatCard label="Izin (Hari Ini)" value={stats.izin} color="amber" />
-        <StatCard label="Alpha (Hari Ini)" value={stats.alpha} color="rose" />
-        <StatCard label="Total Absen (Hari Ini)" value={stats.totalToday} color="slate" />
+        <StatCard label="Sakit (Periode)" value={stats.sakit} color="emerald" />
+        <StatCard label="Izin (Periode)" value={stats.izin} color="amber" />
+        <StatCard label="Alpha (Periode)" value={stats.alpha} color="rose" />
+        <StatCard label="Total Absen (Periode)" value={stats.totalInRange} color="slate" />
         <StatCard label="Total Seluruh Data" value={stats.totalOverall} color="indigo" icon={<Users className="w-4 h-4" />} />
+      </div>
+
+      {/* Ringkasan Nama Siswa Tidak Hadir */}
+      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+        <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-4">
+          <div className="flex items-center gap-3">
+            <h3 className="text-lg font-black text-slate-900 tracking-tight">Daftar Siswa Tidak Hadir</h3>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 px-2 py-1 rounded-lg border border-slate-100">
+              {sortedAndFilteredTableData.length} Data
+            </span>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Filter Kelas:</span>
+            <select 
+              value={tableFilterClass}
+              onChange={e => setTableFilterClass(e.target.value)}
+              className="p-1.5 px-3 bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all appearance-none cursor-pointer"
+            >
+              <option value="">Semua Kelas</option>
+              {KELAS_LIST.flatMap(k => 
+                ABJAD_LIST.map(a => <option key={`${k}${a}`} value={`${k}${a}`}>Kelas {k}{a}</option>)
+              )}
+            </select>
+          </div>
+        </div>
+        <div className="overflow-x-auto max-h-[300px] custom-scrollbar border border-slate-100 rounded-xl">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-slate-50/50 sticky top-0 backdrop-blur-sm border-b border-slate-100">
+              <tr>
+                <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-[10px]">Nama Siswa</th>
+                <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-[10px]">Kelas</th>
+                <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-[10px] text-center">Status</th>
+                <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-[10px] text-right">Tanggal</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {sortedAndFilteredTableData.length > 0 ? (
+                sortedAndFilteredTableData.map((d, idx) => (
+                  <tr key={idx} className="hover:bg-slate-50/50 transition-colors group">
+                    <td className="p-3 font-bold text-slate-800">{d.nama}</td>
+                    <td className="p-3 font-bold text-indigo-600">{d.kelas}</td>
+                    <td className="p-3 text-center">
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                        d.keterangan === 'Sakit' ? 'bg-emerald-100 text-emerald-600' :
+                        d.keterangan === 'Izin' ? 'bg-amber-100 text-amber-600' :
+                        'bg-rose-100 text-rose-600'
+                      }`}>
+                        {d.keterangan}
+                      </span>
+                    </td>
+                    <td className="p-3 text-right text-slate-500 font-medium text-xs">{d.tanggal}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={4} className="p-10 text-center text-slate-400 font-bold italic">
+                    Tidak ada data ketidakhadiran untuk filter ini.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -139,7 +242,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm h-[320px] hover:shadow-md transition-shadow">
             <div className="flex justify-between items-center mb-4">
               <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Akumulasi Status per Kelas</h4>
-              <span className="text-[9px] bg-slate-50 text-slate-500 px-2 py-0.5 rounded-full font-bold border border-slate-200">Data Historis</span>
+              <span className="text-[9px] bg-slate-50 text-slate-500 px-2 py-0.5 rounded-full font-bold border border-slate-200">Data Terfilter</span>
             </div>
             <div className="w-full h-[240px]">
               <ResponsiveContainer width="100%" height="100%">
@@ -220,7 +323,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         </div>
 
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm text-center flex flex-col h-auto hover:shadow-md transition-shadow">
-          <h4 className="text-[10px] font-bold text-slate-500 mb-4 uppercase tracking-wider">Komposisi Status (Total)</h4>
+          <h4 className="text-[10px] font-bold text-slate-500 mb-4 uppercase tracking-wider">Komposisi Status (Periode)</h4>
           <div className="flex-1 flex items-center justify-center p-2">
             <ResponsiveContainer width="100%" height={240}>
               <PieChart>
