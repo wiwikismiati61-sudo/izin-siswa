@@ -394,11 +394,41 @@ const App: React.FC = () => {
             />
           )}
 
-          {activeTab !== 'dashboard' && !isLoggedIn && (
+          {activeTab === 'report' && (
+            <ReportTable 
+              data={dataAbsensi}
+              masterSiswa={masterSiswa} 
+              onEdit={handleEditClick}
+              onDelete={(id) => {
+                setPendingDeleteId(id);
+                setIsDeleteAll(false);
+                setShowConfirmModal(true);
+              }} 
+              onClearAll={() => {
+                setIsDeleteAll(true);
+                setShowConfirmModal(true);
+              }}
+              onViewEvidence={(src) => setSelectedImage(src)}
+              onImport={handleImportAbsensi}
+              isLoggedIn={isLoggedIn}
+            />
+          )}
+
+          {activeTab === 'peringatan' && (
+            <Peringatan 
+              sakitWarningData={getSakitWarningData()}
+              izinWarningData={getIzinWarningData()}
+              panggilanData={getPanggilanData()}
+              setStudentForPrint={setStudentForPrint}
+              isLoggedIn={isLoggedIn}
+            />
+          )}
+
+          {(activeTab === 'input' || activeTab === 'master') && !isLoggedIn && (
             <Login onLogin={() => setIsLoggedIn(true)} />
           )}
 
-          {activeTab !== 'dashboard' && isLoggedIn && (
+          {(activeTab === 'input' || activeTab === 'master') && isLoggedIn && (
             <>
               {activeTab === 'input' && (
                 <InputForm 
@@ -409,34 +439,6 @@ const App: React.FC = () => {
                     setActiveTab('report');
                   }}
                   onSave={handleSaveAbsensi} 
-                />
-              )}
-
-              {activeTab === 'report' && (
-                <ReportTable 
-                  data={dataAbsensi}
-                  masterSiswa={masterSiswa} 
-                  onEdit={handleEditClick}
-                  onDelete={(id) => {
-                    setPendingDeleteId(id);
-                    setIsDeleteAll(false);
-                    setShowConfirmModal(true);
-                  }} 
-                  onClearAll={() => {
-                    setIsDeleteAll(true);
-                    setShowConfirmModal(true);
-                  }}
-                  onViewEvidence={(src) => setSelectedImage(src)}
-                  onImport={handleImportAbsensi}
-                />
-              )}
-
-              {activeTab === 'peringatan' && (
-                <Peringatan 
-                  sakitWarningData={getSakitWarningData()}
-                  izinWarningData={getIzinWarningData()}
-                  panggilanData={getPanggilanData()}
-                  setStudentForPrint={setStudentForPrint}
                 />
               )}
 

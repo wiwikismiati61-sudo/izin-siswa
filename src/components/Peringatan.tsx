@@ -12,9 +12,10 @@ interface PeringatanProps {
   izinWarningData: StudentWarning[];
   panggilanData: StudentWarning[];
   setStudentForPrint: (student: StudentWarning | null) => void;
+  isLoggedIn: boolean;
 }
 
-const Peringatan: React.FC<PeringatanProps> = ({ sakitWarningData, izinWarningData, panggilanData, setStudentForPrint }) => {
+const Peringatan: React.FC<PeringatanProps> = ({ sakitWarningData, izinWarningData, panggilanData, setStudentForPrint, isLoggedIn }) => {
   return (
     <div className="space-y-10 animate-in slide-in-from-bottom duration-500">
       {/* Section for Sakit Warning */}
@@ -74,12 +75,14 @@ const Peringatan: React.FC<PeringatanProps> = ({ sakitWarningData, izinWarningDa
                 <h3 className="font-black text-lg text-slate-800">{s.name}</h3>
                 <p className="text-slate-500 text-sm font-bold mt-1">Kelas {s.kelas} • <span className="text-rose-600">{s.count}x Alpha Terakumulasi</span></p>
               </div>
-              <button 
-                onClick={() => setStudentForPrint(s)}
-                className="p-3 px-5 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-slate-800 transition-colors shadow-sm"
-              >
-                Cetak Surat
-              </button>
+              {isLoggedIn && (
+                <button 
+                  onClick={() => setStudentForPrint(s)}
+                  className="p-3 px-5 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-slate-800 transition-colors shadow-sm"
+                >
+                  Cetak Surat
+                </button>
+              )}
             </div>
           )) : (
             <div className="text-center py-10 bg-white border border-slate-200 rounded-2xl shadow-sm">
