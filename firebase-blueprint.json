@@ -49,6 +49,27 @@
         }
       },
       "required": ["tanggal", "nama", "kelas", "keterangan"]
+    },
+    "Holiday": {
+      "title": "Holiday",
+      "description": "Data hari libur kalender pendidikan",
+      "type": "object",
+      "properties": {
+        "date": {
+          "type": "string",
+          "description": "Tanggal libur (YYYY-MM-DD)"
+        },
+        "name": {
+          "type": "string",
+          "description": "Nama hari libur"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["nasional", "semester", "fakultatif"],
+          "description": "Tipe hari libur"
+        }
+      },
+      "required": ["date", "name", "type"]
     }
   },
   "firestore": {
@@ -59,6 +80,10 @@
     "/absensi_log/{absensiId}": {
       "schema": "AbsensiEntry",
       "description": "Koleksi log absensi harian"
+    },
+    "/kalender_pendidikan/{holidayId}": {
+      "schema": "Holiday",
+      "description": "Koleksi data hari libur kalender pendidikan"
     }
   }
 }

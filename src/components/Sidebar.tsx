@@ -1,11 +1,11 @@
 import React from 'react';
-import { LayoutDashboard, ClipboardList, FileText, AlertTriangle, LogOut, FileCheck2, X, Database } from 'lucide-react';
+import { LayoutDashboard, ClipboardList, FileText, AlertTriangle, LogOut, FileCheck2, X, Database, Calendar as CalendarIcon } from 'lucide-react';
 import { auth } from '../firebase';
 import { signOut } from 'firebase/auth';
 
 interface SidebarProps {
   activeTab: string;
-  setActiveTab: (tab: 'dashboard' | 'input' | 'report' | 'peringatan' | 'master') => void;
+  setActiveTab: (tab: 'dashboard' | 'input' | 'report' | 'peringatan' | 'master' | 'kalender') => void;
   editingEntry: any;
   badgeCount: number;
   isSidebarOpen: boolean;
@@ -96,6 +96,12 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, editingEntry
               icon={<AlertTriangle size={18} />} 
               label="Peringatan"
               badge={badgeCount > 0 ? badgeCount : undefined}
+            />
+            <SidebarLink 
+              active={activeTab === 'kalender'} 
+              onClick={() => { setActiveTab('kalender'); setIsSidebarOpen(false); }} 
+              icon={<CalendarIcon size={18} />} 
+              label="Kalender"
             />
             <SidebarLink 
               active={activeTab === 'master'} 

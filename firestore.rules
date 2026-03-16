@@ -20,6 +20,12 @@ service cloud.firestore {
     //   - bukti: string (optional)
     //   - createdAt: timestamp (optional)
     //
+    // Collection: kalender_pendidikan
+    // Fields:
+    //   - date: string (required, YYYY-MM-DD)
+    //   - name: string (required)
+    //   - type: string (required, nasional/semester/fakultatif)
+    //
     // ===============================================================
 
     // ===============================================================
@@ -50,6 +56,13 @@ service cloud.firestore {
              data.keterangan in ['Sakit', 'Izin', 'Alpha', ''];
     }
 
+    function isValidHoliday(data) {
+      return data.keys().hasAll(['date', 'name', 'type']) &&
+             data.date is string && data.date.matches("^\\d{4}-\\d{2}-\\d{2}$") &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 200 &&
+             data.type in ['nasional', 'semester', 'fakultatif'];
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
@@ -70,6 +83,12 @@ service cloud.firestore {
       allow read: if true; 
       // Only admin can write
       allow write: if isAdmin();
+    }
+
+    match /kalender_pendidikan/{holidayId} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidHoliday(request.resource.data);
+      allow delete: if isAdmin();
     }
 
     match /users/{userId} {

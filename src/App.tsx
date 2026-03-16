@@ -7,6 +7,7 @@ import InputForm from './components/InputForm';
 import ReportTable from './components/ReportTable';
 import Peringatan from './components/Peringatan';
 import MasterData from './components/MasterData';
+import CalendarPendidikan from './components/CalendarPendidikan';
 import Login from './components/Login';
 import { Menu, Trash2 } from 'lucide-react';
 import { db, auth, handleFirestoreError, OperationType } from './firebase';
@@ -32,7 +33,7 @@ const App: React.FC = () => {
   const [isAuthReady, setIsAuthReady] = useState(false);
 
   // Data State
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'input' | 'report' | 'peringatan' | 'master'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'input' | 'report' | 'peringatan' | 'master' | 'kalender'>('dashboard');
   const [masterSiswa, setMasterSiswa] = useState<Siswa[]>([]);
   const [dataAbsensi, setDataAbsensi] = useState<AbsensiEntry[]>([]);
   const [editingEntry, setEditingEntry] = useState<AbsensiEntry | null>(null);
@@ -422,6 +423,10 @@ const App: React.FC = () => {
               setStudentForPrint={setStudentForPrint}
               isLoggedIn={isLoggedIn}
             />
+          )}
+
+          {activeTab === 'kalender' && (
+            <CalendarPendidikan isLoggedIn={isLoggedIn} />
           )}
 
           {(activeTab === 'input' || activeTab === 'master') && !isLoggedIn && (
