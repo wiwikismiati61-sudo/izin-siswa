@@ -96,12 +96,34 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
     setFilterDate('');
   };
   
-  const filteredData = data.filter(item => {
-    const matchClass = filterClass ? item.kelas === filterClass : true;
-    const matchStudent = filterStudent ? item.nama === filterStudent : true;
-    const matchDate = filterDate ? item.tanggal === filterDate : true;
-    return matchClass && matchStudent && matchDate;
-  });
+  const filteredData = useMemo(() => {
+    return data.filter(item => {
+      const matchClass = filterClass ? item.kelas === filterClass : true;
+      const matchStudent = filterStudent ? item.nama === filterStudent : true;
+      const matchDate = filterDate ? item.tanggal === filterDate : true;
+      return matchClass && matchStudent && matchDate;
+    });
+  }, [data, filterClass, filterStudent, filterDate]);
+
+  const groupedData = useMemo(() => {
+    const groups: any = {};
+    // Sort by date desc within groups
+    const sorted = [...filteredData].sort((a, b) => b.tanggal.localeCompare(a.tanggal));
+    
+    sorted.forEach(item => {
+      if (!groups[item.nama]) groups[item.nama] = {};
+      if (!groups[item.nama][item.kelas]) groups[item.nama][item.kelas] = {};
+      if (!groups[item.nama][item.kelas][item.keterangan]) groups[item.nama][item.kelas][item.keterangan] = [];
+      groups[item.nama][item.kelas][item.keterangan].push(item);
+    });
+    return groups;
+  }, [filteredData]);
+
+  const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
+
+  const toggleNode = (id: string) => {
+    setExpandedNodes(prev => ({ ...prev, [id]: !prev[id] }));
+  };
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -229,7 +251,7 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
 
         {/* EXISTING SECTION: Detailed Log */}
         <div>
-            <h3 className="text-xl font-black text-slate-800 mb-4">Log Riwayat Absensi Keseluruhan</h3>
+            <h3 className="text-base font-black text-slate-800 mb-4">Log Riwayat Absensi Keseluruhan</h3>
             <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-3 items-center hover:shadow-md transition-shadow">
                 <select
                     value={filterClass}
@@ -272,73 +294,105 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
-            <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                    <thead className="bg-slate-50 border-b">
-                        <tr>
-                            <th className="p-6 font-bold text-slate-500 uppercase tracking-wider">Tanggal</th>
-                            <th className="p-6 font-bold text-slate-500 uppercase tracking-wider">Nama Siswa</th>
-                            <th className="p-6 font-bold text-slate-500 uppercase tracking-wider">Kelas</th>
-                            <th className="p-6 font-bold text-slate-500 uppercase tracking-wider text-center">Status</th>
-                            <th className="p-6 font-bold text-slate-500 uppercase tracking-wider text-center">Bukti</th>
-                            <th className="p-6 font-bold text-slate-500 uppercase tracking-wider text-right">Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                        {filteredData.length > 0 ? filteredData.map(item => (
-                            <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group">
-                                <td className="p-6 font-semibold text-slate-500 whitespace-nowrap">{item.tanggal}</td>
-                                <td className="p-6 font-bold text-slate-800">{item.nama}</td>
-                                <td className="p-6 font-bold text-indigo-600">{item.kelas}</td>
-                                <td className="p-6 text-center">
-                                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${ 
-                                        item.keterangan === 'Sakit' ? 'bg-emerald-100 text-emerald-600' :
-                                        item.keterangan === 'Izin' ? 'bg-amber-100 text-amber-600' :
-                                        'bg-rose-100 text-rose-600'
-                                    }`}>
-                                        {item.keterangan}
-                                    </span>
-                                </td>
-                                <td className="p-6 text-center">
-                                    {item.bukti ? (
-                                        <button 
-                                          onClick={() => onViewEvidence(item.bukti!)}
-                                          className="text-indigo-600 hover:text-indigo-800 font-bold text-xs flex items-center justify-center gap-1 mx-auto"
-                                        >
-                                            <FileText size={14} /> Lihat
-                                        </button>
-                                    ) : (
-                                        <span className="text-slate-300">-</span>
-                                    )}
-                                </td>
-                                <td className="p-6 text-right">
-                                    {isLoggedIn && (
-                                      <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                          <button 
-                                            onClick={() => onEdit(item)}
-                                            className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200"
-                                          >
-                                              <Pencil size={16} />
-                                          </button>
-                                          <button 
-                                            onClick={() => onDelete(item.id)}
-                                            className="p-2 bg-rose-50 text-rose-500 rounded-lg hover:bg-rose-100"
-                                          >
-                                              <Trash2 size={16} />
-                                          </button>
-                                      </div>
-                                    )}
-                                </td>
-                            </tr>
-                        )) : (
-                            <tr>
-                                <td colSpan={6} className="p-10 text-center text-slate-400 font-bold">
-                                    Data tidak ditemukan.
-                                </td>
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
+            <div className="bg-[#A04040] p-4 text-center relative">
+                <h3 className="text-base font-black text-white tracking-tight">Log Riwayat Absensi</h3>
+                <div className="absolute bottom-2 right-4 text-white/50">
+                    <RotateCcw size={20} />
+                </div>
+            </div>
+            
+            <div className="p-0">
+                {Object.keys(groupedData).length > 0 ? (
+                    Object.keys(groupedData).sort().map(studentName => (
+                        <div key={studentName} className="border-b border-slate-100">
+                            {/* Student Level */}
+                            <div 
+                                onClick={() => toggleNode(studentName)}
+                                className="bg-[#E59999] p-3 px-6 flex items-center gap-3 cursor-pointer hover:bg-[#D88888] transition-colors"
+                            >
+                                <div className="w-4 h-4 flex items-center justify-center border border-white/50 rounded-sm text-white text-[10px] font-bold">
+                                    {expandedNodes[studentName] ? '−' : '+'}
+                                </div>
+                                <span className="font-black text-white uppercase tracking-wide">{studentName}</span>
+                            </div>
+
+                            {expandedNodes[studentName] && Object.keys(groupedData[studentName]).map(className => (
+                                <div key={className}>
+                                    {/* Class Level */}
+                                    <div 
+                                        onClick={() => toggleNode(`${studentName}-${className}`)}
+                                        className="bg-[#F5CACA] p-2 px-10 flex items-center gap-3 cursor-pointer hover:bg-[#EBBBBB] transition-colors"
+                                    >
+                                        <div className="w-4 h-4 flex items-center justify-center border border-white/50 rounded-sm text-white text-[10px] font-bold">
+                                            {expandedNodes[`${studentName}-${className}`] ? '−' : '+'}
+                                        </div>
+                                        <span className="font-bold text-slate-700">{className}</span>
+                                    </div>
+
+                                    {expandedNodes[`${studentName}-${className}`] && Object.keys(groupedData[studentName][className]).map(status => (
+                                        <div key={status}>
+                                            {/* Status Level */}
+                                            <div 
+                                                onClick={() => toggleNode(`${studentName}-${className}-${status}`)}
+                                                className="bg-white p-2 px-14 flex items-center gap-3 cursor-pointer hover:bg-slate-50 transition-colors"
+                                            >
+                                                <div className="w-4 h-4 flex items-center justify-center border border-slate-300 rounded-sm text-slate-400 text-[10px] font-bold">
+                                                    {expandedNodes[`${studentName}-${className}-${status}`] ? '−' : '+'}
+                                                </div>
+                                                <span className={`font-bold ${
+                                                    status === 'Sakit' ? 'text-emerald-600' :
+                                                    status === 'Izin' ? 'text-amber-600' :
+                                                    'text-rose-600'
+                                                }`}>{status} ({groupedData[studentName][className][status].length})</span>
+                                            </div>
+
+                                            {expandedNodes[`${studentName}-${className}-${status}`] && (
+                                                <div className="bg-white divide-y divide-slate-50">
+                                                    {groupedData[studentName][className][status].map((item: AbsensiEntry) => (
+                                                        <div key={item.id} className="p-2 px-20 flex items-center justify-between hover:bg-slate-50 transition-colors group">
+                                                            <div className="flex items-center gap-4">
+                                                                <span className="text-sm font-semibold text-slate-500">{item.tanggal}</span>
+                                                                {item.bukti && (
+                                                                    <button 
+                                                                        onClick={() => onViewEvidence(item.bukti!)}
+                                                                        className="text-indigo-600 hover:text-indigo-800"
+                                                                        title="Lihat Bukti"
+                                                                    >
+                                                                        <FileText size={14} />
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                            {isLoggedIn && (
+                                                                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                    <button 
+                                                                        onClick={() => onEdit(item)}
+                                                                        className="p-1 text-slate-400 hover:text-indigo-600"
+                                                                    >
+                                                                        <Pencil size={14} />
+                                                                    </button>
+                                                                    <button 
+                                                                        onClick={() => onDelete(item.id)}
+                                                                        className="p-1 text-slate-400 hover:text-rose-500"
+                                                                    >
+                                                                        <Trash2 size={14} />
+                                                                    </button>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            ))}
+                        </div>
+                    ))
+                ) : (
+                    <div className="p-20 text-center text-slate-400 font-bold italic">
+                        Data tidak ditemukan. Silakan sesuaikan filter pencarian.
+                    </div>
+                )}
             </div>
         </div>
     </div>
