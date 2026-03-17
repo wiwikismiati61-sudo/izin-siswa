@@ -22,7 +22,8 @@ interface ReportTableProps {
 const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, onDelete, onClearAll, onViewEvidence, onImport, onDeleteDuplicates, isLoggedIn }) => {
   const [filterClass, setFilterClass] = useState('');
   const [filterStudent, setFilterStudent] = useState('');
-  const [filterDate, setFilterDate] = useState('');
+  const [filterStartDate, setFilterStartDate] = useState('');
+  const [filterEndDate, setFilterEndDate] = useState('');
   const [selectedClass, setSelectedClass] = useState('');
   const [summaryStartDate, setSummaryStartDate] = useState('');
   const [summaryEndDate, setSummaryEndDate] = useState('');
@@ -93,17 +94,19 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
   const handleResetFilters = () => {
     setFilterClass('');
     setFilterStudent('');
-    setFilterDate('');
+    setFilterStartDate('');
+    setFilterEndDate('');
   };
   
   const filteredData = useMemo(() => {
     return data.filter(item => {
       const matchClass = filterClass ? item.kelas === filterClass : true;
       const matchStudent = filterStudent ? item.nama === filterStudent : true;
-      const matchDate = filterDate ? item.tanggal === filterDate : true;
-      return matchClass && matchStudent && matchDate;
+      const matchStartDate = filterStartDate ? item.tanggal >= filterStartDate : true;
+      const matchEndDate = filterEndDate ? item.tanggal <= filterEndDate : true;
+      return matchClass && matchStudent && matchStartDate && matchEndDate;
     });
-  }, [data, filterClass, filterStudent, filterDate]);
+  }, [data, filterClass, filterStudent, filterStartDate, filterEndDate]);
 
   const groupedData = useMemo(() => {
     const groups: any = {};
@@ -277,12 +280,23 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
                         <option key={s.Nama} value={s.Nama}>{s.Nama}</option>
                     ))}
                 </select>
-                <input
-                    type="date"
-                    className="w-full md:w-auto p-2.5 px-4 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-600 transition-all cursor-pointer"
-                    value={filterDate}
-                    onChange={e => setFilterDate(e.target.value)}
-                />
+                <div className="flex items-center gap-2 bg-white p-1 rounded-xl border border-slate-200 w-full md:w-auto shadow-sm">
+                    <input 
+                        type="date"
+                        value={filterStartDate}
+                        onChange={e => setFilterStartDate(e.target.value)}
+                        className="p-1.5 bg-transparent text-xs font-bold text-slate-600 outline-none cursor-pointer"
+                        title="Tanggal Mulai"
+                    />
+                    <span className="text-slate-300 font-black">-</span>
+                    <input 
+                        type="date"
+                        value={filterEndDate}
+                        onChange={e => setFilterEndDate(e.target.value)}
+                        className="p-1.5 bg-transparent text-xs font-bold text-slate-600 outline-none cursor-pointer"
+                        title="Tanggal Akhir"
+                    />
+                </div>
                 <button
                     onClick={handleResetFilters}
                     className="p-2.5 px-4 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-slate-50 hover:border-slate-300 shadow-sm transition-all w-full md:w-auto justify-center"
