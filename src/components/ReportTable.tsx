@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { Upload, Trash2, Pencil, FileText, RotateCcw, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
 import { AbsensiEntry, Siswa } from '../types';
 
 // Constants
@@ -27,6 +29,8 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
   const [selectedClass, setSelectedClass] = useState('');
   const [summaryStartDate, setSummaryStartDate] = useState('');
   const [summaryEndDate, setSummaryEndDate] = useState('');
+  const [printClass, setPrintClass] = useState('');
+  const [printDate, setPrintDate] = useState(new Date().toISOString().split('T')[0]);
 
   const studentSummary = useMemo(() => {
     if (!selectedClass) return [];
@@ -89,6 +93,136 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, `Rekap Kelas ${selectedClass}`);
     XLSX.writeFile(wb, `Rekap_Absensi_Kelas_${selectedClass}_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
+  const handlePrintDailyExcel = async () => {
+    if (!printClass || !printDate) {
+      alert("Pilih kelas dan tanggal terlebih dahulu.");
+      return;
+    }
+
+    const studentsInClass = masterSiswa.filter(s => String(s.Kelas) === printClass);
+    const uniqueStudentNames = Array.from(new Set(studentsInClass.map(s => s.Nama)));
+    const uniqueStudents = uniqueStudentNames
+      .map(name => studentsInClass.find(s => s.Nama === name)!)
+      .sort((a, b) => a.Nama.localeCompare(b.Nama));
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet(`Absensi_${printClass}`);
+
+    // Set column widths
+    worksheet.columns = [
+      { width: 5 },  // A: No
+      { width: 35 }, // B: Nama Siswa
+      { width: 8 },  // C: Masuk
+      { width: 8 },  // D: Sakit
+      { width: 8 },  // E: Izin
+      { width: 8 },  // F: Alpha
+      { width: 25 }  // G: Keterangan
+    ];
+
+    // Add Title
+    worksheet.mergeCells('C1:G2');
+    const titleCell = worksheet.getCell('C1');
+    titleCell.value = 'DAFTAR KEHADIRAN SISWA';
+    titleCell.font = { name: 'Times New Roman', size: 16, bold: true };
+    titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
+
+    // Add Kelas and Tanggal
+    worksheet.getCell('E4').value = 'Kelas';
+    worksheet.getCell('F4').value = ':';
+    worksheet.getCell('G4').value = printClass;
+    
+    worksheet.getCell('E5').value = 'Tanggal';
+    worksheet.getCell('F5').value = ':';
+    worksheet.getCell('G5').value = printDate;
+
+    // Fetch and add Logo
+    try {
+      const response = await fetch('https://iili.io/KDFk4fI.png');
+      if (response.ok) {
+        const arrayBuffer = await response.arrayBuffer();
+        const logoId = workbook.addImage({
+          buffer: arrayBuffer,
+          extension: 'png',
+        });
+        
+        // Add image to worksheet (A1:B5)
+        worksheet.addImage(logoId, {
+          tl: { col: 0, row: 0 },
+          br: { col: 2, row: 5 },
+          editAs: 'oneCell'
+        });
+      }
+    } catch (error) {
+      console.error("Failed to load logo", error);
+    }
+
+    // Table Header
+    const headerRow = worksheet.getRow(7);
+    headerRow.values = ['No', 'Nama Siswa', 'Masuk', 'Sakit', 'Izin', 'Alpha', 'Keterangan'];
+    headerRow.height = 25;
+    
+    headerRow.eachCell((cell) => {
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF595959' } // Dark gray
+      };
+      cell.font = { color: { argb: 'FFFFFFFF' }, bold: true };
+      cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      cell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      };
+    });
+
+    // Table Data
+    uniqueStudents.forEach((student, index) => {
+      const absenceRecord = data.find(d => d.nama === student.Nama && String(d.kelas) === printClass && d.tanggal === printDate);
+      
+      const row = worksheet.addRow([
+        index + 1,
+        student.Nama,
+        absenceRecord ? '' : 'v',
+        absenceRecord?.keterangan === 'Sakit' ? 'v' : '',
+        absenceRecord?.keterangan === 'Izin' ? 'v' : '',
+        absenceRecord?.keterangan === 'Alpha' ? 'v' : '',
+        absenceRecord ? absenceRecord.keterangan : ''
+      ]);
+
+      row.eachCell((cell, colNumber) => {
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        };
+        cell.alignment = { vertical: 'middle' };
+        
+        if (colNumber === 1 || (colNumber >= 3 && colNumber <= 6)) {
+          cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        }
+      });
+    });
+
+    // Signature Area
+    const lastRow = worksheet.rowCount;
+    worksheet.mergeCells(`E${lastRow + 3}:G${lastRow + 3}`);
+    const sigTitle = worksheet.getCell(`E${lastRow + 3}`);
+    sigTitle.value = 'Yang Bertanda tangan dibawah ini';
+    sigTitle.alignment = { horizontal: 'center' };
+
+    worksheet.mergeCells(`E${lastRow + 7}:G${lastRow + 7}`);
+    const sigLine = worksheet.getCell(`E${lastRow + 7}`);
+    sigLine.border = { bottom: { style: 'thin' } };
+
+    // Generate and save file
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    saveAs(blob, `Daftar_Hadir_Kelas_${printClass}_${printDate}.xlsx`);
   };
 
   const handleResetFilters = () => {
@@ -166,6 +300,43 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
                  >
                     <Trash2 size={14} /> Hapus Semua
                  </button>
+            </div>
+        </div>
+
+        {/* NEW SECTION: Cetak Absensi Per Kelas */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h3 className="text-xl font-black text-slate-800">Cetak Absensi Harian Per Kelas</h3>
+                    <p className="text-slate-500 text-sm font-medium">Unduh format daftar hadir siswa untuk tanggal tertentu ke Excel.</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                    <input 
+                        type="date"
+                        value={printDate}
+                        onChange={e => setPrintDate(e.target.value)}
+                        className="p-2.5 px-4 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-600 transition-all cursor-pointer"
+                        title="Tanggal Absensi"
+                    />
+                    <select 
+                        value={printClass}
+                        onChange={e => setPrintClass(e.target.value)}
+                        className="flex-1 md:flex-none w-full md:w-auto p-2.5 px-4 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all appearance-none cursor-pointer"
+                    >
+                        <option value="">Pilih Kelas</option>
+                        {KELAS_LIST.flatMap(k => 
+                            ABJAD_LIST.map(a => <option key={`${k}${a}`} value={`${k}${a}`}>Kelas {k}{a}</option>)
+                        )}
+                    </select>
+                    <button
+                        onClick={handlePrintDailyExcel}
+                        disabled={!printClass || !printDate}
+                        className="p-2.5 px-4 bg-indigo-600 text-white rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-indigo-700 shadow-sm transition-all disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed disabled:shadow-none"
+                        title="Cetak ke Excel"
+                    >
+                        <Download size={16} /> Cetak Excel
+                    </button>
+                </div>
             </div>
         </div>
 
