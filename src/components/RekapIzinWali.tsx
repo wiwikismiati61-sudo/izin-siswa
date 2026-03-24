@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { IzinWaliMurid, Siswa } from '../types';
 import { CheckCircle2, FileText, XCircle, Search, Calendar } from 'lucide-react';
-import { db, handleFirestoreError, OperationType } from '../firebase';
+import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 import { doc, updateDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
 
 interface RekapIzinWaliProps {
@@ -27,12 +27,16 @@ const RekapIzinWali: React.FC<RekapIzinWaliProps> = ({ izinData, onViewEvidence 
     setProcessingId(izin.id);
     try {
       // 1. Tambahkan ke absensi_log
+      const currentUser = auth.currentUser;
+      const penanggungJawab = currentUser?.email || currentUser?.displayName || 'Admin';
+
       const newAbsensi = {
         tanggal: izin.tanggal,
         kelas: izin.kelas,
         nama: izin.namaSiswa,
         keterangan: izin.jenisIzin,
         bukti: izin.lampiran,
+        penanggungJawab,
         createdAt: serverTimestamp()
       };
       await addDoc(collection(db, 'absensi_log'), newAbsensi);

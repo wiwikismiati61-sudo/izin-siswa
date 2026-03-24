@@ -13,6 +13,7 @@ export interface AbsensiEntry {
   kelas: string;
   keterangan: KeteranganStatus;
   bukti: string | null;
+  penanggungJawab?: string;
   [key: string]: any; // Allow other properties
 }
 

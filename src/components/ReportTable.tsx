@@ -546,6 +546,11 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
                                                                         <FileText size={14} />
                                                                     </button>
                                                                 )}
+                                                                {item.penanggungJawab && (
+                                                                    <span className="text-xs text-slate-400 italic ml-2">
+                                                                        (Entry by: {item.penanggungJawab})
+                                                                    </span>
+                                                                )}
                                                             </div>
                                                             {isLoggedIn && (
                                                                 <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">

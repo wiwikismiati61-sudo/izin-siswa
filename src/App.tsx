@@ -397,12 +397,19 @@ const App: React.FC = () => {
 
   const handleSaveAbsensi = async (entry: AbsensiEntry) => {
     try {
+      const currentUser = auth.currentUser;
+      const penanggungJawab = currentUser?.email || currentUser?.displayName || 'Admin';
+
       if (entry.id) {
         const { id, ...data } = entry;
-        await updateDoc(doc(db, 'absensi_log', id), data);
+        await updateDoc(doc(db, 'absensi_log', id), {
+          ...data,
+          penanggungJawab: data.penanggungJawab || penanggungJawab
+        });
       } else {
         await addDoc(collection(db, 'absensi_log'), {
           ...entry,
+          penanggungJawab,
           createdAt: serverTimestamp()
         });
       }

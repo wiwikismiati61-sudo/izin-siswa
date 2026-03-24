@@ -18,6 +18,7 @@ service cloud.firestore {
     //   - kelas: string (required)
     //   - keterangan: string (required, Sakit/Izin/Alpha)
     //   - bukti: string (optional)
+    //   - penanggungJawab: string (optional)
     //   - createdAt: timestamp (optional)
     //
     // Collection: kalender_pendidikan
@@ -66,7 +67,8 @@ service cloud.firestore {
              data.tanggal is string && data.tanggal.matches("^\\d{4}-\\d{2}-\\d{2}$") &&
              data.nama is string && data.nama.size() > 0 && data.nama.size() < 100 &&
              data.kelas is string && data.kelas.size() > 0 && data.kelas.size() < 20 &&
-             data.keterangan in ['Sakit', 'Izin', 'Alpha', ''];
+             data.keterangan in ['Sakit', 'Izin', 'Alpha', ''] &&
+             (!('penanggungJawab' in data) || (data.penanggungJawab is string && data.penanggungJawab.size() < 100));
     }
 
     function isValidHoliday(data) {
