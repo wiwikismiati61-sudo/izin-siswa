@@ -60,6 +60,7 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
         izin,
         alpha,
         total: sakit + izin + alpha,
+        records: studentAbsences,
       };
     }).sort((a, b) => a.nama.localeCompare(b.nama));
   }, [selectedClass, masterSiswa, data, summaryStartDate, summaryEndDate]);
@@ -396,6 +397,7 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
                             <th className="p-4 font-bold text-amber-600 uppercase tracking-wider text-center">Izin</th>
                             <th className="p-4 font-bold text-rose-600 uppercase tracking-wider text-center">Alpha</th>
                             <th className="p-4 font-bold text-slate-800 uppercase tracking-wider text-center">Total</th>
+                            {isLoggedIn && <th className="p-4 font-bold text-slate-500 uppercase tracking-wider text-center">Aksi</th>}
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -408,11 +410,33 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
                                 <td className="p-4 text-center font-bold text-amber-600">{summary.izin || '-'}</td>
                                 <td className="p-4 text-center font-bold text-rose-600">{summary.alpha || '-'}</td>
                                 <td className="p-4 text-center font-black text-indigo-600">{summary.total}</td>
+                                {isLoggedIn && (
+                                    <td className="p-4 text-center">
+                                        {summary.records.length > 0 && (
+                                            <div className="flex justify-center gap-2">
+                                                <button 
+                                                    onClick={() => onEdit(summary.records[0])}
+                                                    className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                                                    title="Edit"
+                                                >
+                                                    <Pencil size={16} />
+                                                </button>
+                                                <button 
+                                                    onClick={() => onDelete(summary.records[0].id)}
+                                                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                                                    title="Hapus"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                        )}
+                                    </td>
+                                )}
                             </tr>
                             ))
                         ) : (
                             <tr>
-                            <td colSpan={6} className="p-10 text-center text-slate-400 font-bold">
+                            <td colSpan={isLoggedIn ? 7 : 6} className="p-10 text-center text-slate-400 font-bold">
                                 {selectedClass ? 'Tidak ada data siswa untuk kelas ini.' : 'Silakan pilih kelas terlebih dahulu.'}
                             </td>
                             </tr>
