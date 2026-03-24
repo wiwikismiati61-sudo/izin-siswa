@@ -26,6 +26,19 @@ service cloud.firestore {
     //   - name: string (required)
     //   - type: string (required, nasional/semester/fakultatif)
     //
+    // Collection: izin_wali
+    // Fields:
+    //   - tanggal: string (required, YYYY-MM-DD)
+    //   - kelas: string (required)
+    //   - namaSiswa: string (required)
+    //   - jenisIzin: string (required, Sakit/Izin)
+    //   - namaWali: string (required)
+    //   - telpWali: string (required)
+    //   - keterangan: string (required)
+    //   - lampiran: string (required)
+    //   - statusInput: boolean (required)
+    //   - createdAt: timestamp (optional)
+    //
     // ===============================================================
 
     // ===============================================================
@@ -63,6 +76,19 @@ service cloud.firestore {
              data.type in ['nasional', 'semester', 'fakultatif'];
     }
 
+    function isValidIzinWali(data) {
+      return data.keys().hasAll(['tanggal', 'kelas', 'namaSiswa', 'jenisIzin', 'namaWali', 'telpWali', 'keterangan', 'lampiran', 'statusInput']) &&
+             data.tanggal is string && data.tanggal.matches("^\\d{4}-\\d{2}-\\d{2}$") &&
+             data.kelas is string && data.kelas.size() > 0 && data.kelas.size() < 20 &&
+             data.namaSiswa is string && data.namaSiswa.size() > 0 && data.namaSiswa.size() < 100 &&
+             data.jenisIzin in ['Sakit', 'Izin'] &&
+             data.namaWali is string && data.namaWali.size() > 0 && data.namaWali.size() < 100 &&
+             data.telpWali is string && data.telpWali.size() > 0 && data.telpWali.size() < 20 &&
+             data.keterangan is string && data.keterangan.size() > 0 && data.keterangan.size() < 1000 &&
+             data.lampiran is string && data.lampiran.size() > 0 && data.lampiran.size() < 2000000 && // ~2MB base64 limit
+             data.statusInput is bool;
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
@@ -88,6 +114,13 @@ service cloud.firestore {
     match /kalender_pendidikan/{holidayId} {
       allow read: if true;
       allow write: if isAdmin() && isValidHoliday(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /izin_wali/{izinId} {
+      allow read: if isAdmin();
+      allow create: if isValidIzinWali(request.resource.data) && request.resource.data.statusInput == false;
+      allow update: if isAdmin() && isValidIzinWali(request.resource.data);
       allow delete: if isAdmin();
     }
 

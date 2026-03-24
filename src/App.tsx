@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
-import { AbsensiEntry, Siswa, KeteranganStatus } from './types';
+import { AbsensiEntry, Siswa, KeteranganStatus, IzinWaliMurid } from './types';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import InputForm from './components/InputForm';
@@ -9,7 +9,9 @@ import Peringatan from './components/Peringatan';
 import MasterData from './components/MasterData';
 import CalendarPendidikan from './components/CalendarPendidikan';
 import Login from './components/Login';
-import { Menu, Trash2 } from 'lucide-react';
+import FormIzinWali from './components/FormIzinWali';
+import RekapIzinWali from './components/RekapIzinWali';
+import { Menu, Trash2, X } from 'lucide-react';
 import { db, auth, handleFirestoreError, OperationType } from './firebase';
 import { 
   collection, 
@@ -33,9 +35,10 @@ const App: React.FC = () => {
   const [isAuthReady, setIsAuthReady] = useState(false);
 
   // Data State
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'input' | 'report' | 'peringatan' | 'master' | 'kalender'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'form_izin' | 'rekap_izin' | 'input' | 'report' | 'peringatan' | 'master' | 'kalender'>('dashboard');
   const [masterSiswa, setMasterSiswa] = useState<Siswa[]>([]);
   const [dataAbsensi, setDataAbsensi] = useState<AbsensiEntry[]>([]);
+  const [izinWaliData, setIzinWaliData] = useState<IzinWaliMurid[]>([]);
   const [editingEntry, setEditingEntry] = useState<AbsensiEntry | null>(null);
   const [dashboardSelectedClass, setDashboardSelectedClass] = useState<string>('');
   
@@ -126,9 +129,42 @@ const App: React.FC = () => {
       handleFirestoreError(error, OperationType.LIST, 'master_siswa');
     });
 
+    let unsubIzin: () => void = () => {};
+
+    if (isLoggedIn) {
+      const qIzin = query(collection(db, 'izin_wali'), orderBy('createdAt', 'desc'));
+      unsubIzin = onSnapshot(qIzin, (snapshot) => {
+        const izins = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as IzinWaliMurid[];
+        setIzinWaliData(izins);
+
+        // Auto-delete logic for izin_wali older than 1 month
+        const oneMonthAgo = new Date();
+        oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+        
+        izins.forEach(async (izin) => {
+          const izinDate = new Date(izin.tanggal);
+          if (izinDate < oneMonthAgo) {
+            try {
+              await deleteDoc(doc(db, 'izin_wali', izin.id));
+            } catch (err) {
+              console.error("Failed to auto-delete old izin:", err);
+            }
+          }
+        });
+      }, (error) => {
+        handleFirestoreError(error, OperationType.LIST, 'izin_wali');
+      });
+    } else {
+      setIzinWaliData([]);
+    }
+
     return () => {
       unsubAbsensi();
       unsubSiswa();
+      unsubIzin();
     };
   }, [isAuthReady, isLoggedIn]);
 
@@ -386,6 +422,7 @@ const App: React.FC = () => {
   const izinWarningCount = getIzinWarningData().length;
   const panggilanCount = getPanggilanData().length;
   const badgeCount = sakitWarningCount + izinWarningCount + panggilanCount;
+  const izinBadgeCount = izinWaliData.filter(i => !i.statusInput).length;
 
   return (
     <div className="min-h-screen bg-slate-50 flex overflow-hidden" id="main-app-wrapper">
@@ -394,6 +431,7 @@ const App: React.FC = () => {
         setActiveTab={setActiveTab} 
         editingEntry={editingEntry}
         badgeCount={badgeCount}
+        izinBadgeCount={izinBadgeCount}
         isSidebarOpen={isSidebarOpen}
         setIsSidebarOpen={setIsSidebarOpen}
         isLoggedIn={isLoggedIn}
@@ -418,6 +456,21 @@ const App: React.FC = () => {
               masterSiswa={masterSiswa}
               dashboardSelectedClass={dashboardSelectedClass}
               setDashboardSelectedClass={setDashboardSelectedClass}
+            />
+          )}
+
+          {activeTab === 'form_izin' && (
+            <FormIzinWali masterSiswa={masterSiswa} />
+          )}
+
+          {activeTab === 'rekap_izin' && !isLoggedIn && (
+            <Login onLogin={() => setIsLoggedIn(true)} />
+          )}
+
+          {activeTab === 'rekap_izin' && isLoggedIn && (
+            <RekapIzinWali 
+              izinData={izinWaliData} 
+              onViewEvidence={setSelectedImage} 
             />
           )}
 
@@ -476,6 +529,8 @@ const App: React.FC = () => {
                     setActiveTab('report');
                   }}
                   onSave={handleSaveAbsensi} 
+                  onGoToRekapIzin={() => setActiveTab('rekap_izin')}
+                  izinBadgeCount={izinBadgeCount}
                 />
               )}
 
@@ -490,6 +545,29 @@ const App: React.FC = () => {
             </>
           )}
         </main>
+
+        {selectedImage && (
+          <div className="fixed inset-0 z-[500] bg-slate-900/90 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setSelectedImage(null)}>
+            <div className="relative max-w-4xl w-full max-h-[90vh] flex flex-col items-center justify-center animate-in zoom-in duration-200" onClick={e => e.stopPropagation()}>
+              <button 
+                onClick={() => setSelectedImage(null)}
+                className="absolute -top-4 -right-4 md:-top-6 md:-right-6 p-2 bg-white text-slate-900 rounded-full hover:bg-slate-200 transition-colors shadow-xl"
+              >
+                <X size={24} />
+              </button>
+              <img src={selectedImage} alt="Bukti Izin" className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl" />
+              <div className="mt-4 flex gap-4">
+                <a 
+                  href={selectedImage} 
+                  download="Surat_Izin.png"
+                  className="px-6 py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-lg flex items-center gap-2"
+                >
+                  Unduh Lampiran
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
 
         {showConfirmModal && (
           <div className="fixed inset-0 z-[400] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">

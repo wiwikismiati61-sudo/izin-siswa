@@ -15,3 +15,17 @@ export interface AbsensiEntry {
   bukti: string | null;
   [key: string]: any; // Allow other properties
 }
+
+export interface IzinWaliMurid {
+  id: string;
+  tanggal: string;
+  kelas: string;
+  namaSiswa: string;
+  jenisIzin: 'Sakit' | 'Izin';
+  namaWali: string;
+  telpWali: string;
+  keterangan: string;
+  lampiran: string; // Base64 or URL of the file
+  statusInput: boolean; // true if already inputted to absensi
+  createdAt: any; // Firestore timestamp
+}

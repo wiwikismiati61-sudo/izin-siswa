@@ -1,13 +1,14 @@
 import React from 'react';
-import { LayoutDashboard, ClipboardList, FileText, AlertTriangle, LogOut, FileCheck2, X, Database, Calendar as CalendarIcon } from 'lucide-react';
+import { LayoutDashboard, ClipboardList, FileText, AlertTriangle, LogOut, FileCheck2, X, Database, Calendar as CalendarIcon, UserCheck, Inbox } from 'lucide-react';
 import { auth } from '../firebase';
 import { signOut } from 'firebase/auth';
 
 interface SidebarProps {
   activeTab: string;
-  setActiveTab: (tab: 'dashboard' | 'input' | 'report' | 'peringatan' | 'master' | 'kalender') => void;
+  setActiveTab: (tab: 'dashboard' | 'form_izin' | 'rekap_izin' | 'input' | 'report' | 'peringatan' | 'master' | 'kalender') => void;
   editingEntry: any;
   badgeCount: number;
+  izinBadgeCount: number;
   isSidebarOpen: boolean;
   setIsSidebarOpen: (isOpen: boolean) => void;
   isLoggedIn: boolean;
@@ -37,7 +38,7 @@ const SidebarLink: React.FC<{
   </button>
 );
 
-const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, editingEntry, badgeCount, isSidebarOpen, setIsSidebarOpen, isLoggedIn, onLogout }) => {
+const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, editingEntry, badgeCount, izinBadgeCount, isSidebarOpen, setIsSidebarOpen, isLoggedIn, onLogout }) => {
   const handleLogout = async () => {
     try {
       await signOut(auth);
@@ -76,6 +77,12 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, editingEntry
               label="Dashboard" 
             />
             <SidebarLink 
+              active={activeTab === 'form_izin'} 
+              onClick={() => { setActiveTab('form_izin'); setIsSidebarOpen(false); }} 
+              icon={<UserCheck size={18} />} 
+              label="Form Izin Walimurid" 
+            />
+            <SidebarLink 
               active={activeTab === 'input'} 
               onClick={() => {
                 setActiveTab('input');
@@ -84,6 +91,15 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, editingEntry
               icon={<ClipboardList size={18} />} 
               label={editingEntry ? "Edit Data" : "Input Data"} 
             />
+            {isLoggedIn && (
+              <SidebarLink 
+                active={activeTab === 'rekap_izin'} 
+                onClick={() => { setActiveTab('rekap_izin'); setIsSidebarOpen(false); }} 
+                icon={<Inbox size={18} />} 
+                label="Rekap Izin Wali" 
+                badge={izinBadgeCount > 0 ? izinBadgeCount : undefined}
+              />
+            )}
             <SidebarLink 
               active={activeTab === 'report'} 
               onClick={() => { setActiveTab('report'); setIsSidebarOpen(false); }} 

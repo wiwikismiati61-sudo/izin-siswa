@@ -11,9 +11,11 @@ interface InputFormProps {
   editingEntry: AbsensiEntry | null;
   onCancel: () => void;
   onSave: (entry: AbsensiEntry) => void;
+  onGoToRekapIzin?: () => void;
+  izinBadgeCount?: number;
 }
 
-const InputForm: React.FC<InputFormProps> = ({ masterSiswa, editingEntry, onCancel, onSave }) => {
+const InputForm: React.FC<InputFormProps> = ({ masterSiswa, editingEntry, onCancel, onSave, onGoToRekapIzin, izinBadgeCount = 0 }) => {
   const [form, setForm] = useState({
     tanggal: new Date().toISOString().split('T')[0],
     kelas: '',
@@ -76,11 +78,27 @@ const InputForm: React.FC<InputFormProps> = ({ masterSiswa, editingEntry, onCanc
            <h2 className="text-2xl font-black text-slate-800 tracking-tight">{editingEntry ? 'Edit Data Absensi' : 'Input Absensi Baru'}</h2>
            <p className="text-slate-500 text-sm font-medium mt-1">Lengkapi formulir di bawah ini</p>
         </div>
-        {editingEntry && (
-          <button onClick={onCancel} className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 transition-colors">
-              <X size={24} />
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          {!editingEntry && onGoToRekapIzin && (
+            <button 
+              type="button"
+              onClick={onGoToRekapIzin}
+              className="px-4 py-2 bg-indigo-50 text-indigo-600 font-bold rounded-xl hover:bg-indigo-100 transition-colors flex items-center gap-2 text-sm relative"
+            >
+              Rekap Izin Wali Murid
+              {izinBadgeCount > 0 && (
+                <span className="absolute -top-2 -right-2 bg-rose-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm">
+                  {izinBadgeCount}
+                </span>
+              )}
+            </button>
+          )}
+          {editingEntry && (
+            <button onClick={onCancel} className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 transition-colors">
+                <X size={24} />
+            </button>
+          )}
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
