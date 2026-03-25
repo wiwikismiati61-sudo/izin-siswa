@@ -411,23 +411,35 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
                                 <td className="p-4 text-center font-bold text-rose-600">{summary.alpha || '-'}</td>
                                 <td className="p-4 text-center font-black text-indigo-600">{summary.total}</td>
                                 {isLoggedIn && (
-                                    <td className="p-4 text-center">
+                                    <td className="p-2 text-center">
                                         {summary.records.length > 0 && (
-                                            <div className="flex justify-center gap-2">
-                                                <button 
-                                                    onClick={() => onEdit(summary.records[0])}
-                                                    className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                                                    title="Edit"
-                                                >
-                                                    <Pencil size={16} />
-                                                </button>
-                                                <button 
-                                                    onClick={() => onDelete(summary.records[0].id)}
-                                                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                                                    title="Hapus"
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
+                                            <div className="flex flex-col items-center gap-1">
+                                                {summary.records.map(record => (
+                                                    <div key={record.id} className="flex items-center gap-1 bg-slate-50 rounded-md px-2 py-1 border border-slate-100">
+                                                        <span className="text-[10px] font-semibold text-slate-500 w-16 text-left">{record.tanggal.split('-').reverse().join('/')}</span>
+                                                        <span className={`text-[10px] font-bold w-10 text-left ${
+                                                            record.keterangan === 'Sakit' ? 'text-emerald-600' :
+                                                            record.keterangan === 'Izin' ? 'text-amber-600' :
+                                                            'text-rose-600'
+                                                        }`}>{record.keterangan}</span>
+                                                        <div className="flex gap-0.5">
+                                                            <button 
+                                                                onClick={() => onEdit(record)}
+                                                                className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-100 rounded transition-colors"
+                                                                title="Edit"
+                                                            >
+                                                                <Pencil size={12} />
+                                                            </button>
+                                                            <button 
+                                                                onClick={() => onDelete(record.id)}
+                                                                className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-100 rounded transition-colors"
+                                                                title="Hapus"
+                                                            >
+                                                                <Trash2 size={12} />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ))}
                                             </div>
                                         )}
                                     </td>

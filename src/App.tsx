@@ -25,7 +25,8 @@ import {
   getDocs, 
   query, 
   orderBy,
-  serverTimestamp
+  serverTimestamp,
+  getDoc
 } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 
@@ -53,8 +54,40 @@ const App: React.FC = () => {
 
   // Auth Listener
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setIsLoggedIn(!!user);
+    const checkAdminAccess = async (user: any) => {
+      const authorizedEmail = "wiwikismiati61@guru.smp.belajar.id";
+      if (user.email === authorizedEmail) return true;
+
+      try {
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists() && userDoc.data().role === 'admin') {
+          return true;
+        }
+
+        if (user.email) {
+          const emailDoc = await getDoc(doc(db, 'admin_emails', user.email));
+          if (emailDoc.exists()) {
+            return true;
+          }
+        }
+      } catch (err) {
+        console.error("Error checking admin access:", err);
+      }
+      return false;
+    };
+
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        const isAdmin = await checkAdminAccess(user);
+        if (isAdmin) {
+          setIsLoggedIn(true);
+        } else {
+          await auth.signOut();
+          setIsLoggedIn(false);
+        }
+      } else {
+        setIsLoggedIn(false);
+      }
       setIsAuthReady(true);
     });
     return () => unsubscribe();

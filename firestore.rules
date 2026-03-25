@@ -53,6 +53,7 @@ service cloud.firestore {
     function isAdmin() {
       return isAuthenticated() &&
         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         exists(/databases/$(database)/documents/admin_emails/$(request.auth.token.email)) ||
           (request.auth.token.email == "wiwikismiati61@guru.smp.belajar.id" && request.auth.token.email_verified == true));
     }
 
@@ -127,7 +128,12 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if isAuthenticated() && request.auth.uid == userId;
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow write: if isAdmin();
+    }
+
+    match /admin_emails/{emailId} {
+      allow read: if isAuthenticated() && (request.auth.token.email == emailId || isAdmin());
       allow write: if isAdmin();
     }
   }
