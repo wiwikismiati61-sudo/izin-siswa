@@ -86,8 +86,8 @@ const MasterData: React.FC<MasterDataProps> = ({ handleImportSiswa, handleRestor
       });
 
       // Also add to admin_emails just in case
-      await setDoc(doc(db, 'admin_emails', email), {
-        email: email,
+      await setDoc(doc(db, 'admin_emails', email.toLowerCase()), {
+        email: email.toLowerCase(),
         addedAt: serverTimestamp()
       });
 
@@ -107,8 +107,8 @@ const MasterData: React.FC<MasterDataProps> = ({ handleImportSiswa, handleRestor
         // The user already exists in Auth. We can't get their UID easily, 
         // but we can add their email to admin_emails so they get admin access when they log in.
         try {
-          await setDoc(doc(db, 'admin_emails', email), {
-            email: email,
+          await setDoc(doc(db, 'admin_emails', email.toLowerCase()), {
+            email: email.toLowerCase(),
             addedAt: serverTimestamp()
           });
           setSuccess(true);

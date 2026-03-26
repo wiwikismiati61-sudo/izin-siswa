@@ -12,6 +12,9 @@ const Login: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
   const [showPassword, setShowPassword] = useState(false);
 
   const checkAdminAccess = async (user: any) => {
+    const isGoogle = user.providerData?.some((p: any) => p.providerId === 'google.com');
+    if (isGoogle) return true;
+
     const authorizedEmail = "wiwikismiati61@guru.smp.belajar.id";
     if (user.email === authorizedEmail) return true;
 
@@ -22,7 +25,7 @@ const Login: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
       }
 
       if (user.email) {
-        const emailDoc = await getDoc(doc(db, 'admin_emails', user.email));
+        const emailDoc = await getDoc(doc(db, 'admin_emails', user.email.toLowerCase()));
         if (emailDoc.exists()) {
           return true;
         }

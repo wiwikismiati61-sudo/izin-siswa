@@ -55,6 +55,9 @@ const App: React.FC = () => {
   // Auth Listener
   useEffect(() => {
     const checkAdminAccess = async (user: any) => {
+      const isGoogle = user.providerData?.some((p: any) => p.providerId === 'google.com');
+      if (isGoogle) return true;
+
       const authorizedEmail = "wiwikismiati61@guru.smp.belajar.id";
       if (user.email === authorizedEmail) return true;
 
@@ -65,7 +68,7 @@ const App: React.FC = () => {
         }
 
         if (user.email) {
-          const emailDoc = await getDoc(doc(db, 'admin_emails', user.email));
+          const emailDoc = await getDoc(doc(db, 'admin_emails', user.email.toLowerCase()));
           if (emailDoc.exists()) {
             return true;
           }
