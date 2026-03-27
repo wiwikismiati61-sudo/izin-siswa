@@ -34,6 +34,7 @@ const App: React.FC = () => {
   // Authentication State
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAuthReady, setIsAuthReady] = useState(false);
+  const [userRole, setUserRole] = useState<'admin' | 'viewer' | null>(null);
 
   // Data State
   const [activeTab, setActiveTab] = useState<'dashboard' | 'form_izin' | 'rekap_izin' | 'input' | 'report' | 'peringatan' | 'master' | 'kalender'>('dashboard');
@@ -54,42 +55,46 @@ const App: React.FC = () => {
 
   // Auth Listener
   useEffect(() => {
-    const checkAdminAccess = async (user: any) => {
-      const isGoogle = user.providerData?.some((p: any) => p.providerId === 'google.com');
-      if (isGoogle) return true;
-
+    const checkUserRole = async (user: any) => {
       const authorizedEmail = "wiwikismiati61@guru.smp.belajar.id";
-      if (user.email === authorizedEmail) return true;
+      if (user.email === authorizedEmail) return 'admin';
 
       try {
         const userDoc = await getDoc(doc(db, 'users', user.uid));
-        if (userDoc.exists() && userDoc.data().role === 'admin') {
-          return true;
+        if (userDoc.exists()) {
+          return userDoc.data().role || 'viewer';
         }
 
         if (user.email) {
           const emailDoc = await getDoc(doc(db, 'admin_emails', user.email.toLowerCase()));
           if (emailDoc.exists()) {
-            return true;
+            return emailDoc.data().role || 'admin';
           }
         }
       } catch (err) {
-        console.error("Error checking admin access:", err);
+        console.error("Error checking user role:", err);
       }
-      return false;
+
+      const isGoogle = user.providerData?.some((p: any) => p.providerId === 'google.com');
+      if (isGoogle) return 'admin';
+
+      return null;
     };
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        const isAdmin = await checkAdminAccess(user);
-        if (isAdmin) {
+        const role = await checkUserRole(user);
+        if (role) {
+          setUserRole(role as 'admin' | 'viewer');
           setIsLoggedIn(true);
         } else {
           await auth.signOut();
           setIsLoggedIn(false);
+          setUserRole(null);
         }
       } else {
         setIsLoggedIn(false);
+        setUserRole(null);
       }
       setIsAuthReady(true);
     });
@@ -479,6 +484,7 @@ const App: React.FC = () => {
         setIsSidebarOpen={setIsSidebarOpen}
         isLoggedIn={isLoggedIn}
         onLogout={handleLogout}
+        userRole={userRole}
       />
 
       {isSidebarOpen && <div onClick={() => setIsSidebarOpen(false)} className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 md:hidden transition-opacity"></div>}
@@ -514,6 +520,7 @@ const App: React.FC = () => {
             <RekapIzinWali 
               izinData={izinWaliData} 
               onViewEvidence={setSelectedImage} 
+              userRole={userRole}
             />
           )}
 
@@ -540,6 +547,7 @@ const App: React.FC = () => {
               onViewEvidence={(src) => setSelectedImage(src)}
               onImport={handleImportAbsensi}
               isLoggedIn={isLoggedIn}
+              userRole={userRole}
             />
           )}
 
@@ -554,7 +562,7 @@ const App: React.FC = () => {
           )}
 
           {activeTab === 'kalender' && (
-            <CalendarPendidikan isLoggedIn={isLoggedIn} />
+            <CalendarPendidikan isLoggedIn={isLoggedIn} userRole={userRole} />
           )}
 
           {(activeTab === 'input' || activeTab === 'master') && !isLoggedIn && (
@@ -574,6 +582,7 @@ const App: React.FC = () => {
                   onSave={handleSaveAbsensi} 
                   onGoToRekapIzin={() => setActiveTab('rekap_izin')}
                   izinBadgeCount={izinBadgeCount}
+                  userRole={userRole}
                 />
               )}
 
@@ -583,6 +592,7 @@ const App: React.FC = () => {
                   handleRestore={handleRestore}
                   handleExportExcel={handleExportExcel}
                   handleBackup={handleBackup}
+                  userRole={userRole}
                 />
               )}
             </>

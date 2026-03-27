@@ -19,9 +19,10 @@ interface ReportTableProps {
   onImport: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onDeleteDuplicates: () => void;
   isLoggedIn: boolean;
+  userRole?: 'admin' | 'viewer' | null;
 }
 
-const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, onDelete, onClearAll, onViewEvidence, onImport, onDeleteDuplicates, isLoggedIn }) => {
+const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, onDelete, onClearAll, onViewEvidence, onImport, onDeleteDuplicates, isLoggedIn, userRole }) => {
   const [filterClass, setFilterClass] = useState('');
   const [filterStudent, setFilterStudent] = useState('');
   const [filterStartDate, setFilterStartDate] = useState('');
@@ -272,18 +273,18 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
             </div>
             <div className="flex flex-wrap gap-2">
                  <label className={`p-2.5 px-4 rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition-all ${
-                   isLoggedIn 
+                   isLoggedIn && userRole === 'admin'
                      ? "bg-white border border-indigo-200 text-indigo-700 cursor-pointer hover:bg-indigo-50 hover:border-indigo-300" 
                      : "bg-slate-50 border border-slate-200 text-slate-400 cursor-not-allowed"
                  }`}>
                     <Upload size={14} /> Impor
-                    <input type="file" accept=".xlsx, .xls" onChange={onImport} className="hidden" disabled={!isLoggedIn} />
+                    <input type="file" accept=".xlsx, .xls" onChange={onImport} className="hidden" disabled={!isLoggedIn || userRole !== 'admin'} />
                  </label>
                  <button 
                    onClick={onDeleteDuplicates}
-                   disabled={!isLoggedIn}
+                   disabled={!isLoggedIn || userRole !== 'admin'}
                    className={`p-2.5 px-4 rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition-all ${
-                     isLoggedIn 
+                     isLoggedIn && userRole === 'admin'
                        ? "bg-white border border-amber-200 text-amber-600 hover:bg-amber-50 hover:border-amber-300" 
                        : "bg-slate-50 border border-slate-200 text-slate-400 cursor-not-allowed"
                    }`}
@@ -292,9 +293,9 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
                  </button>
                  <button 
                    onClick={onClearAll}
-                   disabled={!isLoggedIn}
+                   disabled={!isLoggedIn || userRole !== 'admin'}
                    className={`p-2.5 px-4 rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition-all ${
-                     isLoggedIn 
+                     isLoggedIn && userRole === 'admin'
                        ? "bg-white border border-rose-200 text-rose-600 hover:bg-rose-50 hover:border-rose-300" 
                        : "bg-slate-50 border border-slate-200 text-slate-400 cursor-not-allowed"
                    }`}
@@ -397,7 +398,7 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
                             <th className="p-4 font-bold text-amber-600 uppercase tracking-wider text-center">Izin</th>
                             <th className="p-4 font-bold text-rose-600 uppercase tracking-wider text-center">Alpha</th>
                             <th className="p-4 font-bold text-slate-800 uppercase tracking-wider text-center">Total</th>
-                            {isLoggedIn && <th className="p-4 font-bold text-slate-500 uppercase tracking-wider text-center">Aksi</th>}
+                            {isLoggedIn && userRole === 'admin' && <th className="p-4 font-bold text-slate-500 uppercase tracking-wider text-center">Aksi</th>}
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -410,7 +411,7 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
                                 <td className="p-4 text-center font-bold text-amber-600">{summary.izin || '-'}</td>
                                 <td className="p-4 text-center font-bold text-rose-600">{summary.alpha || '-'}</td>
                                 <td className="p-4 text-center font-black text-indigo-600">{summary.total}</td>
-                                {isLoggedIn && (
+                                {isLoggedIn && userRole === 'admin' && (
                                     <td className="p-2 text-center">
                                         {summary.records.length > 0 && (
                                             <div className="flex flex-col items-center gap-1">
@@ -448,7 +449,7 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
                             ))
                         ) : (
                             <tr>
-                            <td colSpan={isLoggedIn ? 7 : 6} className="p-10 text-center text-slate-400 font-bold">
+                            <td colSpan={isLoggedIn && userRole === 'admin' ? 7 : 6} className="p-10 text-center text-slate-400 font-bold">
                                 {selectedClass ? 'Tidak ada data siswa untuk kelas ini.' : 'Silakan pilih kelas terlebih dahulu.'}
                             </td>
                             </tr>
@@ -588,7 +589,7 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
                                                                     </span>
                                                                 )}
                                                             </div>
-                                                            {isLoggedIn && (
+                                                            {isLoggedIn && userRole === 'admin' && (
                                                                 <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                                     <button 
                                                                         onClick={() => onEdit(item)}

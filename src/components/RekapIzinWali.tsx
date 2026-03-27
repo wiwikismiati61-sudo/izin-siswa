@@ -7,9 +7,10 @@ import { doc, updateDoc, addDoc, collection, serverTimestamp } from 'firebase/fi
 interface RekapIzinWaliProps {
   izinData: IzinWaliMurid[];
   onViewEvidence: (src: string) => void;
+  userRole?: 'admin' | 'viewer' | null;
 }
 
-const RekapIzinWali: React.FC<RekapIzinWaliProps> = ({ izinData, onViewEvidence }) => {
+const RekapIzinWali: React.FC<RekapIzinWaliProps> = ({ izinData, onViewEvidence, userRole }) => {
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'done'>('pending');
   const [searchQuery, setSearchQuery] = useState('');
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -56,6 +57,20 @@ const RekapIzinWali: React.FC<RekapIzinWaliProps> = ({ izinData, onViewEvidence 
   const pendingCount = izinData.filter(i => !i.statusInput).length;
   const doneCount = izinData.filter(i => i.statusInput).length;
   const totalCount = izinData.length;
+
+  if (userRole !== 'admin') {
+    return (
+      <div className="flex flex-col items-center justify-center h-full space-y-4 animate-in fade-in duration-500">
+        <div className="p-4 bg-rose-100 text-rose-600 rounded-full">
+          <XCircle size={48} />
+        </div>
+        <h2 className="text-2xl font-black text-slate-800">Akses Ditolak</h2>
+        <p className="text-slate-500 text-center max-w-md">
+          Halaman Rekap Izin Wali hanya dapat diakses oleh Administrator.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">

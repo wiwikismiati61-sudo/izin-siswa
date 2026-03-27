@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Upload, Download, Save, Database, UserPlus, X, Eye, EyeOff } from 'lucide-react';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { initializeApp } from 'firebase/app';
+import { doc, setDoc, serverTimestamp, collection, onSnapshot, deleteDoc, updateDoc, query, where, getDocs } from 'firebase/firestore';
+import { initializeApp, getApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
 
@@ -54,9 +54,10 @@ interface MasterDataProps {
   handleRestore: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleExportExcel: () => void;
   handleBackup: () => void;
+  userRole: 'admin' | 'viewer' | null;
 }
 
-const MasterData: React.FC<MasterDataProps> = ({ handleImportSiswa, handleRestore, handleExportExcel, handleBackup }) => {
+const MasterData: React.FC<MasterDataProps> = ({ handleImportSiswa, handleRestore, handleExportExcel, handleBackup, userRole }) => {
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -64,6 +65,52 @@ const MasterData: React.FC<MasterDataProps> = ({ handleImportSiswa, handleRestor
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [role, setRole] = useState<'admin' | 'viewer'>('admin');
+  const [usersList, setUsersList] = useState<any[]>([]);
+
+  React.useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'admin_emails'), (snapshot) => {
+      const users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setUsersList(users);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'admin_emails');
+    });
+    return () => unsub();
+  }, []);
+
+  const handleDeleteUser = async (emailId: string) => {
+    if (window.confirm(`Hapus akses untuk ${emailId}?`)) {
+      try {
+        await deleteDoc(doc(db, 'admin_emails', emailId));
+        
+        // Also try to delete from users collection if exists
+        const q = query(collection(db, 'users'), where('email', '==', emailId));
+        const snapshot = await getDocs(q);
+        snapshot.forEach(async (docSnap) => {
+          await deleteDoc(doc(db, 'users', docSnap.id));
+        });
+      } catch (error) {
+        console.error("Error deleting user:", error);
+        alert("Gagal menghapus user.");
+      }
+    }
+  };
+
+  const handleRoleChange = async (emailId: string, newRole: string) => {
+    try {
+      await updateDoc(doc(db, 'admin_emails', emailId), { role: newRole });
+      
+      // Also try to update users collection if exists
+      const q = query(collection(db, 'users'), where('email', '==', emailId));
+      const snapshot = await getDocs(q);
+      snapshot.forEach(async (docSnap) => {
+        await updateDoc(doc(db, 'users', docSnap.id), { role: newRole });
+      });
+    } catch (error) {
+      console.error("Error updating role:", error);
+      alert("Gagal mengubah role user.");
+    }
+  };
 
   const handleRegisterUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,7 +120,12 @@ const MasterData: React.FC<MasterDataProps> = ({ handleImportSiswa, handleRestor
 
     try {
       // Use a secondary app to create the user without signing out the current admin
-      const secondaryApp = initializeApp(firebaseConfig, "SecondaryApp");
+      let secondaryApp;
+      try {
+        secondaryApp = getApp("SecondaryApp");
+      } catch (e) {
+        secondaryApp = initializeApp(firebaseConfig, "SecondaryApp");
+      }
       const secondaryAuth = getAuth(secondaryApp);
 
       const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, password);
@@ -81,13 +133,14 @@ const MasterData: React.FC<MasterDataProps> = ({ handleImportSiswa, handleRestor
       // Write to users collection using the main app (which is still logged in as admin)
       await setDoc(doc(db, 'users', userCredential.user.uid), {
         email: userCredential.user.email,
-        role: 'admin',
+        role: role,
         createdAt: serverTimestamp()
       });
 
       // Also add to admin_emails just in case
       await setDoc(doc(db, 'admin_emails', email.toLowerCase()), {
         email: email.toLowerCase(),
+        role: role,
         addedAt: serverTimestamp()
       });
 
@@ -109,6 +162,7 @@ const MasterData: React.FC<MasterDataProps> = ({ handleImportSiswa, handleRestor
         try {
           await setDoc(doc(db, 'admin_emails', email.toLowerCase()), {
             email: email.toLowerCase(),
+            role: role,
             addedAt: serverTimestamp()
           });
           setSuccess(true);
@@ -131,6 +185,20 @@ const MasterData: React.FC<MasterDataProps> = ({ handleImportSiswa, handleRestor
       setLoading(false);
     }
   };
+
+  if (userRole !== 'admin') {
+    return (
+      <div className="flex flex-col items-center justify-center h-full space-y-4 animate-in fade-in duration-500">
+        <div className="p-4 bg-rose-100 text-rose-600 rounded-full">
+          <X size={48} />
+        </div>
+        <h2 className="text-2xl font-black text-slate-800">Akses Ditolak</h2>
+        <p className="text-slate-500 text-center max-w-md">
+          Halaman Master Data hanya dapat diakses oleh Administrator. Silakan hubungi admin utama jika Anda membutuhkan akses.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -179,6 +247,60 @@ const MasterData: React.FC<MasterDataProps> = ({ handleImportSiswa, handleRestor
           onChange={handleRestore}
           color="rose"
         />
+      </div>
+
+      {/* User List Section */}
+      <div className="mt-8 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+          <div>
+            <h3 className="text-lg font-black text-slate-800">Daftar Akses User</h3>
+            <p className="text-sm text-slate-500 font-medium">Kelola hak akses pengguna aplikasi</p>
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-100">
+                <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Email</th>
+                <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Role</th>
+                <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Aksi</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {usersList.map((u) => (
+                <tr key={u.id} className="hover:bg-slate-50 transition-colors">
+                  <td className="p-4 text-sm font-bold text-slate-700">{u.email}</td>
+                  <td className="p-4">
+                    <select
+                      value={u.role || 'admin'}
+                      onChange={(e) => handleRoleChange(u.id, e.target.value)}
+                      className="p-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                    >
+                      <option value="admin">Full Access</option>
+                      <option value="viewer">Hanya Views</option>
+                    </select>
+                  </td>
+                  <td className="p-4 text-right">
+                    <button
+                      onClick={() => handleDeleteUser(u.id)}
+                      className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                      title="Hapus Akses"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {usersList.length === 0 && (
+                <tr>
+                  <td colSpan={3} className="p-8 text-center text-slate-500 font-medium">
+                    Belum ada data user tambahan.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {showRegisterModal && (
@@ -238,6 +360,18 @@ const MasterData: React.FC<MasterDataProps> = ({ handleImportSiswa, handleRestor
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1.5">Role Akses</label>
+                <select
+                  value={role}
+                  onChange={(e) => setRole(e.target.value as 'admin' | 'viewer')}
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                >
+                  <option value="admin">Full Access (Admin)</option>
+                  <option value="viewer">Hanya Views (Viewer)</option>
+                </select>
               </div>
 
               <div className="pt-4">

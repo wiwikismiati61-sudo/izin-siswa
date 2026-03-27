@@ -13,6 +13,7 @@ interface SidebarProps {
   setIsSidebarOpen: (isOpen: boolean) => void;
   isLoggedIn: boolean;
   onLogout: () => void;
+  userRole: 'admin' | 'viewer' | null;
 }
 
 const SidebarLink: React.FC<{
@@ -38,7 +39,7 @@ const SidebarLink: React.FC<{
   </button>
 );
 
-const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, editingEntry, badgeCount, izinBadgeCount, isSidebarOpen, setIsSidebarOpen, isLoggedIn, onLogout }) => {
+const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, editingEntry, badgeCount, izinBadgeCount, isSidebarOpen, setIsSidebarOpen, isLoggedIn, onLogout, userRole }) => {
   const handleLogout = async () => {
     try {
       await signOut(auth);
@@ -82,16 +83,18 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, editingEntry
               icon={<UserCheck size={18} />} 
               label="Form Izin Walimurid" 
             />
-            <SidebarLink 
-              active={activeTab === 'input'} 
-              onClick={() => {
-                setActiveTab('input');
-                setIsSidebarOpen(false);
-              }} 
-              icon={<ClipboardList size={18} />} 
-              label={editingEntry ? "Edit Data" : "Input Data"} 
-            />
-            {isLoggedIn && (
+            {(!isLoggedIn || userRole === 'admin') && (
+              <SidebarLink 
+                active={activeTab === 'input'} 
+                onClick={() => {
+                  setActiveTab('input');
+                  setIsSidebarOpen(false);
+                }} 
+                icon={<ClipboardList size={18} />} 
+                label={editingEntry ? "Edit Data" : "Input Data"} 
+              />
+            )}
+            {isLoggedIn && userRole === 'admin' && (
               <SidebarLink 
                 active={activeTab === 'rekap_izin'} 
                 onClick={() => { setActiveTab('rekap_izin'); setIsSidebarOpen(false); }} 
@@ -119,12 +122,14 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, editingEntry
               icon={<CalendarIcon size={18} />} 
               label="Kalender"
             />
-            <SidebarLink 
-              active={activeTab === 'master'} 
-              onClick={() => { setActiveTab('master'); setIsSidebarOpen(false); }} 
-              icon={<Database size={18} />} 
-              label="Master Data"
-            />
+            {(!isLoggedIn || userRole === 'admin') && (
+              <SidebarLink 
+                active={activeTab === 'master'} 
+                onClick={() => { setActiveTab('master'); setIsSidebarOpen(false); }} 
+                icon={<Database size={18} />} 
+                label="Master Data"
+              />
+            )}
           </nav>
         </div>
       </div>

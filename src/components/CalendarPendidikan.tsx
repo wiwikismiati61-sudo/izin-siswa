@@ -28,9 +28,10 @@ interface Holiday {
 
 interface CalendarPendidikanProps {
   isLoggedIn: boolean;
+  userRole?: 'admin' | 'viewer' | null;
 }
 
-const CalendarPendidikan: React.FC<CalendarPendidikanProps> = ({ isLoggedIn }) => {
+const CalendarPendidikan: React.FC<CalendarPendidikanProps> = ({ isLoggedIn, userRole }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date()); // Start at current month
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -152,7 +153,7 @@ const CalendarPendidikan: React.FC<CalendarPendidikanProps> = ({ isLoggedIn }) =
             </button>
           </div>
 
-          {isLoggedIn && (
+          {isLoggedIn && userRole === 'admin' && (
             <div className="flex items-center gap-2">
               <button 
                 onClick={handleLoadDefaults}
@@ -244,7 +245,7 @@ const CalendarPendidikan: React.FC<CalendarPendidikanProps> = ({ isLoggedIn }) =
                 }`}>
                   {holiday.name}
                 </p>
-                {isLoggedIn && (
+                {isLoggedIn && userRole === 'admin' && (
                   <button 
                     onClick={(e) => {
                       e.stopPropagation();
@@ -333,7 +334,7 @@ const CalendarPendidikan: React.FC<CalendarPendidikanProps> = ({ isLoggedIn }) =
                       <p className="text-[10px] font-bold text-slate-500">{h.name}</p>
                     </div>
                   </div>
-                  {isLoggedIn && (
+                  {isLoggedIn && userRole === 'admin' && (
                     <button 
                       onClick={() => setPendingDeleteId(h.id!)}
                       className="p-1.5 text-slate-300 hover:text-rose-500 transition-colors opacity-0 group-hover:opacity-100"

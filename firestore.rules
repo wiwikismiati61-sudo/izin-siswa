@@ -55,7 +55,7 @@ service cloud.firestore {
         (
           (request.auth.token.firebase.sign_in_provider == 'google.com') ||
           (request.auth.token.email == "wiwikismiati61@guru.smp.belajar.id" && request.auth.token.email_verified == true) ||
-          (request.auth.token.email != null && exists(/databases/$(database)/documents/admin_emails/$(request.auth.token.email))) ||
+          (request.auth.token.email != null && exists(/databases/$(database)/documents/admin_emails/$(request.auth.token.email)) && get(/databases/$(database)/documents/admin_emails/$(request.auth.token.email)).data.role == 'admin') ||
           (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
         );
     }

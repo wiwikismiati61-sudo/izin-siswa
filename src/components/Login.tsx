@@ -11,29 +11,30 @@ const Login: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  const checkAdminAccess = async (user: any) => {
-    const isGoogle = user.providerData?.some((p: any) => p.providerId === 'google.com');
-    if (isGoogle) return true;
-
+  const checkUserRole = async (user: any) => {
     const authorizedEmail = "wiwikismiati61@guru.smp.belajar.id";
-    if (user.email === authorizedEmail) return true;
+    if (user.email === authorizedEmail) return 'admin';
 
     try {
       const userDoc = await getDoc(doc(db, 'users', user.uid));
-      if (userDoc.exists() && userDoc.data().role === 'admin') {
-        return true;
+      if (userDoc.exists()) {
+        return userDoc.data().role || 'viewer';
       }
 
       if (user.email) {
         const emailDoc = await getDoc(doc(db, 'admin_emails', user.email.toLowerCase()));
         if (emailDoc.exists()) {
-          return true;
+          return emailDoc.data().role || 'admin';
         }
       }
     } catch (err) {
-      console.error("Error checking admin access:", err);
+      console.error("Error checking user role:", err);
     }
-    return false;
+
+    const isGoogle = user.providerData?.some((p: any) => p.providerId === 'google.com');
+    if (isGoogle) return 'admin';
+
+    return null;
   };
 
   const handleGoogleLogin = async () => {
@@ -43,9 +44,9 @@ const Login: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
       
-      const isAdmin = await checkAdminAccess(result.user);
-      if (!isAdmin) {
-        setError(`Akun ${result.user.email} tidak memiliki akses admin. Silakan gunakan akun yang terdaftar.`);
+      const role = await checkUserRole(result.user);
+      if (!role) {
+        setError(`Akun ${result.user.email} tidak memiliki akses.`);
         await auth.signOut();
       } else {
         onLogin();
@@ -71,9 +72,9 @@ const Login: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
     try {
       const result = await signInWithEmailAndPassword(auth, email, password);
       
-      const isAdmin = await checkAdminAccess(result.user);
-      if (!isAdmin) {
-        setError(`Akun ${result.user.email} tidak memiliki akses admin.`);
+      const role = await checkUserRole(result.user);
+      if (!role) {
+        setError(`Akun ${result.user.email} tidak memiliki akses.`);
         await auth.signOut();
       } else {
         onLogin();
