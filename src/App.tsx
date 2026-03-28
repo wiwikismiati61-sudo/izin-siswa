@@ -34,7 +34,7 @@ const App: React.FC = () => {
   // Authentication State
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAuthReady, setIsAuthReady] = useState(false);
-  const [userRole, setUserRole] = useState<'admin' | 'viewer' | null>(null);
+  const [userRole, setUserRole] = useState<'admin' | 'viewer' | 'entry' | null>(null);
 
   // Data State
   const [activeTab, setActiveTab] = useState<'dashboard' | 'form_izin' | 'rekap_izin' | 'input' | 'report' | 'peringatan' | 'master' | 'kalender'>('dashboard');
@@ -85,7 +85,7 @@ const App: React.FC = () => {
       if (user) {
         const role = await checkUserRole(user);
         if (role) {
-          setUserRole(role as 'admin' | 'viewer');
+          setUserRole(role as 'admin' | 'viewer' | 'entry');
           setIsLoggedIn(true);
         } else {
           await auth.signOut();

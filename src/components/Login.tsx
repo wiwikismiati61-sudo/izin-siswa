@@ -7,7 +7,7 @@ import { doc, getDoc } from 'firebase/firestore';
 const Login: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
@@ -54,9 +54,13 @@ const Login: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
     } catch (err: any) {
       console.error("Google Login Error:", err);
       if (err.code === 'auth/unauthorized-domain') {
-        setError("Domain ini belum terdaftar di Firebase Console. Silakan tambahkan 'izin-siswa.vercel.app' ke Authorized Domains di Firebase Auth.");
+        setError(`Domain ini belum terdaftar di Firebase Console. Silakan tambahkan domain aplikasi ini ke Authorized Domains di Firebase Auth.`);
+      } else if (err.code === 'auth/popup-closed-by-user') {
+        setError("Popup login ditutup sebelum selesai. Silakan coba lagi.");
+      } else if (err.code === 'auth/popup-blocked') {
+        setError("Popup login diblokir oleh browser. Silakan izinkan popup untuk situs ini.");
       } else {
-        setError("Gagal login dengan Google. Pastikan koneksi internet stabil.");
+        setError(`Gagal login dengan Google (${err.code || err.message}). Pastikan koneksi internet stabil.`);
       }
     } finally {
       setLoading(false);
@@ -65,12 +69,13 @@ const Login: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) return;
+    if (!username || !password) return;
     
     setLoading(true);
     setError(null);
     try {
-      const result = await signInWithEmailAndPassword(auth, email, password);
+      const formattedEmail = username.includes('@') ? username.toLowerCase() : `${username.toLowerCase()}@sistem.local`;
+      const result = await signInWithEmailAndPassword(auth, formattedEmail, password);
       
       const role = await checkUserRole(result.user);
       if (!role) {
@@ -82,7 +87,7 @@ const Login: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
     } catch (err: any) {
       console.error("Email Login Error:", err);
       if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
-        setError("Email atau password salah.");
+        setError("Username atau password salah.");
       } else {
         setError("Gagal login. Pastikan koneksi internet stabil.");
       }
@@ -112,12 +117,12 @@ const Login: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
         <form onSubmit={handleEmailLogin} className="space-y-4 mb-6">
           <div>
             <input
-              type="email"
+              type="text"
               required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-sm"
-              placeholder="Email"
+              placeholder="User Name / Email"
             />
           </div>
           <div className="relative">
@@ -139,8 +144,8 @@ const Login: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
           </div>
           <button 
             type="submit"
-            disabled={loading || !email || !password}
-            className={`w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm transition-all shadow-sm shadow-indigo-200 ${loading || !email || !password ? 'opacity-70 cursor-not-allowed' : ''}`}
+            disabled={loading || !username || !password}
+            className={`w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm transition-all shadow-sm shadow-indigo-200 ${loading || !username || !password ? 'opacity-70 cursor-not-allowed' : ''}`}
           >
             {loading ? 'Memproses...' : 'Masuk'}
           </button>

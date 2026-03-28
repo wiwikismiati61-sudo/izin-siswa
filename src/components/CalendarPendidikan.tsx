@@ -28,7 +28,7 @@ interface Holiday {
 
 interface CalendarPendidikanProps {
   isLoggedIn: boolean;
-  userRole?: 'admin' | 'viewer' | null;
+  userRole?: 'admin' | 'viewer' | 'entry' | null;
 }
 
 const CalendarPendidikan: React.FC<CalendarPendidikanProps> = ({ isLoggedIn, userRole }) => {
@@ -153,7 +153,7 @@ const CalendarPendidikan: React.FC<CalendarPendidikanProps> = ({ isLoggedIn, use
             </button>
           </div>
 
-          {isLoggedIn && userRole === 'admin' && (
+          {isLoggedIn && (userRole === 'admin' || userRole === 'entry') && (
             <div className="flex items-center gap-2">
               <button 
                 onClick={handleLoadDefaults}

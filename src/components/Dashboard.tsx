@@ -110,13 +110,26 @@ const Dashboard: React.FC<DashboardProps> = ({
   const dashboardStudentSummary = useMemo(() => {
     if (!dashboardSelectedClass) return [];
     const studentsInClass = masterSiswa.filter(s => String(s.Kelas) === dashboardSelectedClass);
-    return studentsInClass
-      .map(student => {
-        const studentAbsences = filteredData.filter(d => d.nama === student.Nama && d.kelas === dashboardSelectedClass);
+    const uniqueStudentNames = Array.from(new Set(studentsInClass.map(s => s.Nama)));
+    
+    // Also include students who have absence records in this class but might not be in masterSiswa
+    const absencesInClass = filteredData.filter(d => String(d.kelas).trim().toUpperCase() === String(dashboardSelectedClass).trim().toUpperCase());
+    absencesInClass.forEach(d => {
+      if (!uniqueStudentNames.some(name => name.trim().toUpperCase() === d.nama.trim().toUpperCase())) {
+        uniqueStudentNames.push(d.nama);
+      }
+    });
+
+    return uniqueStudentNames
+      .map(studentName => {
+        const studentAbsences = filteredData.filter(d => 
+          d.nama.trim().toUpperCase() === studentName.trim().toUpperCase() && 
+          String(d.kelas).trim().toUpperCase() === String(dashboardSelectedClass).trim().toUpperCase()
+        );
         const sakit = studentAbsences.filter(d => d.keterangan === 'Sakit').length;
         const izin = studentAbsences.filter(d => d.keterangan === 'Izin').length;
         const alpha = studentAbsences.filter(d => d.keterangan === 'Alpha').length;
-        return { name: student.Nama, Sakit: sakit, Izin: izin, Alpha: alpha };
+        return { name: studentName, Sakit: sakit, Izin: izin, Alpha: alpha };
       })
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [dashboardSelectedClass, masterSiswa, filteredData]);

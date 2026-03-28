@@ -60,6 +60,18 @@ service cloud.firestore {
         );
     }
 
+    function isEntry() {
+      return isAuthenticated() &&
+        (
+          (request.auth.token.email != null && exists(/databases/$(database)/documents/admin_emails/$(request.auth.token.email)) && get(/databases/$(database)/documents/admin_emails/$(request.auth.token.email)).data.role == 'entry') ||
+          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'entry')
+        );
+    }
+
+    function isAdminOrEntry() {
+      return isAdmin() || isEntry();
+    }
+
     function isValidSiswa(data) {
       return data.keys().hasAll(['Nama', 'Kelas']) &&
              data.Nama is string && data.Nama.size() > 0 && data.Nama.size() < 100 &&
@@ -105,28 +117,30 @@ service cloud.firestore {
     }
 
     match /master_siswa/{siswaId} {
-      // Public read for dashboard charts, Admin only write
+      // Public read for dashboard charts, Admin/Entry only write
       allow read: if true;
-      allow write: if isAdmin();
+      allow create, update: if isAdminOrEntry();
+      allow delete: if isAdmin();
     }
 
     match /absensi_log/{absensiId} {
       // Dashboard needs public read as per user request "membuka dashboard tidak perlu login"
       allow read: if true; 
-      // Only admin can write
-      allow write: if isAdmin();
+      // Only admin/entry can write
+      allow create, update: if isAdminOrEntry();
+      allow delete: if isAdmin();
     }
 
     match /kalender_pendidikan/{holidayId} {
       allow read: if true;
-      allow write: if isAdmin() && isValidHoliday(request.resource.data);
+      allow create, update: if isAdminOrEntry() && isValidHoliday(request.resource.data);
       allow delete: if isAdmin();
     }
 
     match /izin_wali/{izinId} {
-      allow read: if isAdmin();
+      allow read: if isAdminOrEntry();
       allow create: if isValidIzinWali(request.resource.data) && request.resource.data.statusInput == false;
-      allow update: if isAdmin() && isValidIzinWali(request.resource.data);
+      allow update: if isAdminOrEntry() && isValidIzinWali(request.resource.data);
       allow delete: if isAdmin();
     }
 

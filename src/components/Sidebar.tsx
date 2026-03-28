@@ -83,7 +83,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, editingEntry
               icon={<UserCheck size={18} />} 
               label="Form Izin Walimurid" 
             />
-            {(!isLoggedIn || userRole === 'admin') && (
+            {(!isLoggedIn || userRole === 'admin' || userRole === 'entry') && (
               <SidebarLink 
                 active={activeTab === 'input'} 
                 onClick={() => {
@@ -94,7 +94,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, editingEntry
                 label={editingEntry ? "Edit Data" : "Input Data"} 
               />
             )}
-            {isLoggedIn && userRole === 'admin' && (
+            {isLoggedIn && (userRole === 'admin' || userRole === 'entry') && (
               <SidebarLink 
                 active={activeTab === 'rekap_izin'} 
                 onClick={() => { setActiveTab('rekap_izin'); setIsSidebarOpen(false); }} 
@@ -122,7 +122,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, editingEntry
               icon={<CalendarIcon size={18} />} 
               label="Kalender"
             />
-            {(!isLoggedIn || userRole === 'admin') && (
+            {(!isLoggedIn || userRole === 'admin' || userRole === 'entry') && (
               <SidebarLink 
                 active={activeTab === 'master'} 
                 onClick={() => { setActiveTab('master'); setIsSidebarOpen(false); }} 

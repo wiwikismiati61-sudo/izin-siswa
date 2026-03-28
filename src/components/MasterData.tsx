@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Upload, Download, Save, Database, UserPlus, X, Eye, EyeOff } from 'lucide-react';
+import { Upload, Download, Save, Database, UserPlus, X, Eye, EyeOff, Trash2 } from 'lucide-react';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 import { doc, setDoc, serverTimestamp, collection, onSnapshot, deleteDoc, updateDoc, query, where, getDocs } from 'firebase/firestore';
 import { initializeApp, getApp } from 'firebase/app';
@@ -54,18 +54,18 @@ interface MasterDataProps {
   handleRestore: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleExportExcel: () => void;
   handleBackup: () => void;
-  userRole: 'admin' | 'viewer' | null;
+  userRole?: 'admin' | 'viewer' | 'entry' | null;
 }
 
 const MasterData: React.FC<MasterDataProps> = ({ handleImportSiswa, handleRestore, handleExportExcel, handleBackup, userRole }) => {
   const [showRegisterModal, setShowRegisterModal] = useState(false);
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [role, setRole] = useState<'admin' | 'viewer'>('admin');
+  const [role, setRole] = useState<'admin' | 'viewer' | 'entry'>('admin');
   const [usersList, setUsersList] = useState<any[]>([]);
 
   React.useEffect(() => {
@@ -118,6 +118,8 @@ const MasterData: React.FC<MasterDataProps> = ({ handleImportSiswa, handleRestor
     setError(null);
     setSuccess(false);
 
+    const formattedEmail = username.includes('@') ? username.toLowerCase() : `${username.toLowerCase()}@sistem.local`;
+
     try {
       // Use a secondary app to create the user without signing out the current admin
       let secondaryApp;
@@ -128,18 +130,20 @@ const MasterData: React.FC<MasterDataProps> = ({ handleImportSiswa, handleRestor
       }
       const secondaryAuth = getAuth(secondaryApp);
 
-      const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, password);
+      const userCredential = await createUserWithEmailAndPassword(secondaryAuth, formattedEmail, password);
       
       // Write to users collection using the main app (which is still logged in as admin)
       await setDoc(doc(db, 'users', userCredential.user.uid), {
-        email: userCredential.user.email,
+        email: formattedEmail,
+        username: username.toLowerCase(),
         role: role,
         createdAt: serverTimestamp()
       });
 
       // Also add to admin_emails just in case
-      await setDoc(doc(db, 'admin_emails', email.toLowerCase()), {
-        email: email.toLowerCase(),
+      await setDoc(doc(db, 'admin_emails', formattedEmail), {
+        email: formattedEmail,
+        username: username.toLowerCase(),
         role: role,
         addedAt: serverTimestamp()
       });
@@ -148,7 +152,7 @@ const MasterData: React.FC<MasterDataProps> = ({ handleImportSiswa, handleRestor
       await signOut(secondaryAuth);
 
       setSuccess(true);
-      setEmail('');
+      setUsername('');
       setPassword('');
       setTimeout(() => {
         setShowRegisterModal(false);
@@ -160,13 +164,14 @@ const MasterData: React.FC<MasterDataProps> = ({ handleImportSiswa, handleRestor
         // The user already exists in Auth. We can't get their UID easily, 
         // but we can add their email to admin_emails so they get admin access when they log in.
         try {
-          await setDoc(doc(db, 'admin_emails', email.toLowerCase()), {
-            email: email.toLowerCase(),
+          await setDoc(doc(db, 'admin_emails', formattedEmail), {
+            email: formattedEmail,
+            username: username.toLowerCase(),
             role: role,
             addedAt: serverTimestamp()
           });
           setSuccess(true);
-          setEmail('');
+          setUsername('');
           setPassword('');
           setTimeout(() => {
             setShowRegisterModal(false);
@@ -174,7 +179,7 @@ const MasterData: React.FC<MasterDataProps> = ({ handleImportSiswa, handleRestor
           }, 2000);
         } catch (dbErr) {
           console.error("Error adding to admin_emails:", dbErr);
-          setError("Gagal memberikan akses admin ke email yang sudah terdaftar.");
+          setError("Gagal memberikan akses admin ke user yang sudah terdaftar.");
         }
       } else if (err.code === 'auth/weak-password') {
         setError("Password terlalu lemah (minimal 6 karakter).");
@@ -186,7 +191,7 @@ const MasterData: React.FC<MasterDataProps> = ({ handleImportSiswa, handleRestor
     }
   };
 
-  if (userRole !== 'admin') {
+  if (userRole !== 'admin' && userRole !== 'entry') {
     return (
       <div className="flex flex-col items-center justify-center h-full space-y-4 animate-in fade-in duration-500">
         <div className="p-4 bg-rose-100 text-rose-600 rounded-full">
@@ -194,7 +199,7 @@ const MasterData: React.FC<MasterDataProps> = ({ handleImportSiswa, handleRestor
         </div>
         <h2 className="text-2xl font-black text-slate-800">Akses Ditolak</h2>
         <p className="text-slate-500 text-center max-w-md">
-          Halaman Master Data hanya dapat diakses oleh Administrator. Silakan hubungi admin utama jika Anda membutuhkan akses.
+          Halaman Master Data hanya dapat diakses oleh Administrator dan Entry Data. Silakan hubungi admin utama jika Anda membutuhkan akses.
         </p>
       </div>
     );
@@ -208,22 +213,26 @@ const MasterData: React.FC<MasterDataProps> = ({ handleImportSiswa, handleRestor
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        <ActionCard
-          title="Daftar User Baru"
-          description="Tambahkan akses login (email & password) untuk admin baru."
-          icon={<UserPlus size={24} />}
-          onClick={() => setShowRegisterModal(true)}
-          color="indigo"
-        />
-        <ActionCard
-          title="Impor Data Siswa"
-          description="Masukkan data siswa baru menggunakan file Excel (.xlsx, .xls)."
-          icon={<Upload size={24} />}
-          isUpload
-          accept=".xlsx, .xls"
-          onChange={handleImportSiswa}
-          color="indigo"
-        />
+        {userRole === 'admin' && (
+          <ActionCard
+            title="Daftar User Baru"
+            description="Tambahkan akses login (email & password) untuk admin baru."
+            icon={<UserPlus size={24} />}
+            onClick={() => setShowRegisterModal(true)}
+            color="indigo"
+          />
+        )}
+        {userRole === 'admin' && (
+          <ActionCard
+            title="Impor Data Siswa"
+            description="Masukkan data siswa baru menggunakan file Excel (.xlsx, .xls)."
+            icon={<Upload size={24} />}
+            isUpload
+            accept=".xlsx, .xls"
+            onChange={handleImportSiswa}
+            color="indigo"
+          />
+        )}
         <ActionCard
           title="Ekspor Laporan"
           description="Unduh seluruh log absensi ke dalam format Excel."
@@ -231,77 +240,84 @@ const MasterData: React.FC<MasterDataProps> = ({ handleImportSiswa, handleRestor
           onClick={handleExportExcel}
           color="emerald"
         />
-        <ActionCard
-          title="Backup Data"
-          description="Simpan seluruh data (Siswa & Absensi) ke file JSON lokal."
-          icon={<Save size={24} />}
-          onClick={handleBackup}
-          color="amber"
-        />
-        <ActionCard
-          title="Restore Data"
-          description="Pulihkan data sistem dari file backup JSON sebelumnya."
-          icon={<Database size={24} />}
-          isUpload
-          accept=".json"
-          onChange={handleRestore}
-          color="rose"
-        />
+        {userRole === 'admin' && (
+          <ActionCard
+            title="Backup Data"
+            description="Simpan seluruh data (Siswa & Absensi) ke file JSON lokal."
+            icon={<Save size={24} />}
+            onClick={handleBackup}
+            color="amber"
+          />
+        )}
+        {userRole === 'admin' && (
+          <ActionCard
+            title="Restore Data"
+            description="Pulihkan data sistem dari file backup JSON sebelumnya."
+            icon={<Database size={24} />}
+            isUpload
+            accept=".json"
+            onChange={handleRestore}
+            color="rose"
+          />
+        )}
       </div>
 
       {/* User List Section */}
-      <div className="mt-8 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-          <div>
-            <h3 className="text-lg font-black text-slate-800">Daftar Akses User</h3>
-            <p className="text-sm text-slate-500 font-medium">Kelola hak akses pengguna aplikasi</p>
+      {userRole === 'admin' && (
+        <div className="mt-8 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+            <div>
+              <h3 className="text-lg font-black text-slate-800">Daftar Akses User</h3>
+              <p className="text-sm text-slate-500 font-medium">Kelola hak akses pengguna aplikasi</p>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-100">
+                  <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Email</th>
+                  <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Role</th>
+                  <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Aksi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {usersList.map((u) => (
+                  <tr key={u.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="p-4 text-sm font-bold text-slate-700">{u.email}</td>
+                    <td className="p-4">
+                      <select
+                        value={u.role || 'admin'}
+                        onChange={(e) => handleRoleChange(u.id, e.target.value)}
+                        className="p-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                      >
+                        <option value="admin">Full Access</option>
+                        <option value="viewer">Hanya Views</option>
+                        <option value="entry">Entry Data (Tidak Boleh Delete)</option>
+                      </select>
+                    </td>
+                    <td className="p-4 text-right">
+                      <button
+                        onClick={() => handleDeleteUser(u.id)}
+                        className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                        title="Hapus Akses"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {usersList.length === 0 && (
+                  <tr>
+                    <td colSpan={3} className="p-8 text-center text-slate-500 font-medium">
+                      Belum ada data user tambahan.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-100">
-                <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Email</th>
-                <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Role</th>
-                <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Aksi</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {usersList.map((u) => (
-                <tr key={u.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="p-4 text-sm font-bold text-slate-700">{u.email}</td>
-                  <td className="p-4">
-                    <select
-                      value={u.role || 'admin'}
-                      onChange={(e) => handleRoleChange(u.id, e.target.value)}
-                      className="p-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-                    >
-                      <option value="admin">Full Access</option>
-                      <option value="viewer">Hanya Views</option>
-                    </select>
-                  </td>
-                  <td className="p-4 text-right">
-                    <button
-                      onClick={() => handleDeleteUser(u.id)}
-                      className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
-                      title="Hapus Akses"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {usersList.length === 0 && (
-                <tr>
-                  <td colSpan={3} className="p-8 text-center text-slate-500 font-medium">
-                    Belum ada data user tambahan.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      )}
 
       {showRegisterModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
@@ -329,14 +345,14 @@ const MasterData: React.FC<MasterDataProps> = ({ handleImportSiswa, handleRestor
               )}
               
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1.5">Email</label>
+                <label className="block text-sm font-bold text-slate-700 mb-1.5">User Name</label>
                 <input
-                  type="email"
+                  type="text"
                   required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
                   className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-                  placeholder="admin@sekolah.com"
+                  placeholder="admin123"
                 />
               </div>
               
@@ -366,10 +382,11 @@ const MasterData: React.FC<MasterDataProps> = ({ handleImportSiswa, handleRestor
                 <label className="block text-sm font-bold text-slate-700 mb-1.5">Role Akses</label>
                 <select
                   value={role}
-                  onChange={(e) => setRole(e.target.value as 'admin' | 'viewer')}
+                  onChange={(e) => setRole(e.target.value as 'admin' | 'viewer' | 'entry')}
                   className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
                 >
                   <option value="admin">Full Access (Admin)</option>
+                  <option value="entry">Entry Data (Tidak Boleh Delete)</option>
                   <option value="viewer">Hanya Views (Viewer)</option>
                 </select>
               </div>

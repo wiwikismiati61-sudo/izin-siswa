@@ -19,7 +19,7 @@ interface ReportTableProps {
   onImport: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onDeleteDuplicates: () => void;
   isLoggedIn: boolean;
-  userRole?: 'admin' | 'viewer' | null;
+  userRole?: 'admin' | 'viewer' | 'entry' | null;
 }
 
 const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, onDelete, onClearAll, onViewEvidence, onImport, onDeleteDuplicates, isLoggedIn, userRole }) => {
@@ -40,12 +40,19 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
     
     // Get unique students by name to avoid duplicates in the summary table
     const uniqueStudentNames = Array.from(new Set(studentsInClass.map(s => s.Nama)));
-    const uniqueStudents = uniqueStudentNames.map(name => studentsInClass.find(s => s.Nama === name)!);
+    
+    // Also include students who have absence records in this class but might not be in masterSiswa
+    const absencesInClass = data.filter(d => String(d.kelas).trim().toUpperCase() === String(selectedClass).trim().toUpperCase());
+    absencesInClass.forEach(d => {
+      if (!uniqueStudentNames.some(name => name.trim().toUpperCase() === d.nama.trim().toUpperCase())) {
+        uniqueStudentNames.push(d.nama);
+      }
+    });
 
-    return uniqueStudents.map(student => {
+    return uniqueStudentNames.map(studentName => {
       const studentAbsences = data.filter(d => {
-        const matchName = d.nama === student.Nama;
-        const matchClass = String(d.kelas) === selectedClass;
+        const matchName = d.nama.trim().toUpperCase() === studentName.trim().toUpperCase();
+        const matchClass = String(d.kelas).trim().toUpperCase() === String(selectedClass).trim().toUpperCase();
         const matchStartDate = summaryStartDate ? d.tanggal >= summaryStartDate : true;
         const matchEndDate = summaryEndDate ? d.tanggal <= summaryEndDate : true;
         return matchName && matchClass && matchStartDate && matchEndDate;
@@ -56,7 +63,7 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
       const alpha = studentAbsences.filter(d => d.keterangan === 'Alpha').length;
       
       return {
-        nama: student.Nama,
+        nama: studentName,
         sakit,
         izin,
         alpha,
@@ -71,10 +78,19 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
     const filtered = masterSiswa.filter(s => String(s.Kelas) === filterClass);
     // Get unique students by name
     const uniqueNames = Array.from(new Set(filtered.map(s => s.Nama)));
+    
+    // Also include students who have absence records in this class but might not be in masterSiswa
+    const absencesInClass = data.filter(d => String(d.kelas).trim().toUpperCase() === String(filterClass).trim().toUpperCase());
+    absencesInClass.forEach(d => {
+      if (!uniqueNames.some(name => name.trim().toUpperCase() === d.nama.trim().toUpperCase())) {
+        uniqueNames.push(d.nama);
+      }
+    });
+
     return uniqueNames
-        .map(name => filtered.find(s => s.Nama === name)!)
+        .map(name => ({ Nama: name }))
         .sort((a, b) => a.Nama.localeCompare(b.Nama));
-  }, [filterClass, masterSiswa]);
+  }, [filterClass, masterSiswa, data]);
 
   const handleExportSummaryExcel = () => {
     if (!selectedClass || studentSummary.length === 0) {
@@ -105,8 +121,17 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
 
     const studentsInClass = masterSiswa.filter(s => String(s.Kelas) === printClass);
     const uniqueStudentNames = Array.from(new Set(studentsInClass.map(s => s.Nama)));
+    
+    // Also include students who have absence records in this class but might not be in masterSiswa
+    const absencesInClass = data.filter(d => String(d.kelas).trim().toUpperCase() === String(printClass).trim().toUpperCase());
+    absencesInClass.forEach(d => {
+      if (!uniqueStudentNames.some(name => name.trim().toUpperCase() === d.nama.trim().toUpperCase())) {
+        uniqueStudentNames.push(d.nama);
+      }
+    });
+
     const uniqueStudents = uniqueStudentNames
-      .map(name => studentsInClass.find(s => s.Nama === name)!)
+      .map(name => ({ Nama: name }))
       .sort((a, b) => a.Nama.localeCompare(b.Nama));
 
     const workbook = new ExcelJS.Workbook();
@@ -183,7 +208,11 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
 
     // Table Data
     uniqueStudents.forEach((student, index) => {
-      const absenceRecord = data.find(d => d.nama === student.Nama && String(d.kelas) === printClass && d.tanggal === printDate);
+      const absenceRecord = data.find(d => 
+        d.nama.trim().toUpperCase() === student.Nama.trim().toUpperCase() && 
+        String(d.kelas).trim().toUpperCase() === String(printClass).trim().toUpperCase() && 
+        d.tanggal === printDate
+      );
       
       const row = worksheet.addRow([
         index + 1,
@@ -398,7 +427,7 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
                             <th className="p-4 font-bold text-amber-600 uppercase tracking-wider text-center">Izin</th>
                             <th className="p-4 font-bold text-rose-600 uppercase tracking-wider text-center">Alpha</th>
                             <th className="p-4 font-bold text-slate-800 uppercase tracking-wider text-center">Total</th>
-                            {isLoggedIn && userRole === 'admin' && <th className="p-4 font-bold text-slate-500 uppercase tracking-wider text-center">Aksi</th>}
+                            {isLoggedIn && (userRole === 'admin' || userRole === 'entry') && <th className="p-4 font-bold text-slate-500 uppercase tracking-wider text-center">Aksi</th>}
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -411,7 +440,7 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
                                 <td className="p-4 text-center font-bold text-amber-600">{summary.izin || '-'}</td>
                                 <td className="p-4 text-center font-bold text-rose-600">{summary.alpha || '-'}</td>
                                 <td className="p-4 text-center font-black text-indigo-600">{summary.total}</td>
-                                {isLoggedIn && userRole === 'admin' && (
+                                {isLoggedIn && (userRole === 'admin' || userRole === 'entry') && (
                                     <td className="p-2 text-center">
                                         {summary.records.length > 0 && (
                                             <div className="flex flex-col items-center gap-1">
@@ -431,13 +460,15 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
                                                             >
                                                                 <Pencil size={12} />
                                                             </button>
-                                                            <button 
-                                                                onClick={() => onDelete(record.id)}
-                                                                className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-100 rounded transition-colors"
-                                                                title="Hapus"
-                                                            >
-                                                                <Trash2 size={12} />
-                                                            </button>
+                                                            {userRole === 'admin' && (
+                                                                <button 
+                                                                    onClick={() => onDelete(record.id)}
+                                                                    className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-100 rounded transition-colors"
+                                                                    title="Hapus"
+                                                                >
+                                                                    <Trash2 size={12} />
+                                                                </button>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 ))}
@@ -449,7 +480,7 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
                             ))
                         ) : (
                             <tr>
-                            <td colSpan={isLoggedIn && userRole === 'admin' ? 7 : 6} className="p-10 text-center text-slate-400 font-bold">
+                            <td colSpan={isLoggedIn && (userRole === 'admin' || userRole === 'entry') ? 7 : 6} className="p-10 text-center text-slate-400 font-bold">
                                 {selectedClass ? 'Tidak ada data siswa untuk kelas ini.' : 'Silakan pilih kelas terlebih dahulu.'}
                             </td>
                             </tr>
@@ -523,7 +554,7 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
                 </div>
             </div>
             
-            <div className="p-0">
+            <div className="p-0 max-h-[320px] overflow-y-auto custom-scrollbar">
                 {Object.keys(groupedData).length > 0 ? (
                     Object.keys(groupedData).sort().map(studentName => (
                         <div key={studentName} className="border-b border-slate-100">
@@ -589,7 +620,7 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
                                                                     </span>
                                                                 )}
                                                             </div>
-                                                            {isLoggedIn && userRole === 'admin' && (
+                                                            {isLoggedIn && (userRole === 'admin' || userRole === 'entry') && (
                                                                 <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                                     <button 
                                                                         onClick={() => onEdit(item)}
@@ -597,12 +628,14 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
                                                                     >
                                                                         <Pencil size={14} />
                                                                     </button>
-                                                                    <button 
-                                                                        onClick={() => onDelete(item.id)}
-                                                                        className="p-1 text-slate-400 hover:text-rose-500"
-                                                                    >
-                                                                        <Trash2 size={14} />
-                                                                    </button>
+                                                                    {userRole === 'admin' && (
+                                                                        <button 
+                                                                            onClick={() => onDelete(item.id)}
+                                                                            className="p-1 text-slate-400 hover:text-rose-600"
+                                                                        >
+                                                                            <Trash2 size={14} />
+                                                                        </button>
+                                                                    )}
                                                                 </div>
                                                             )}
                                                         </div>
