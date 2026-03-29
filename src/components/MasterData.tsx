@@ -69,6 +69,8 @@ const MasterData: React.FC<MasterDataProps> = ({ handleImportSiswa, handleRestor
   const [usersList, setUsersList] = useState<any[]>([]);
 
   React.useEffect(() => {
+    if (userRole !== 'admin') return;
+    
     const unsub = onSnapshot(collection(db, 'admin_emails'), (snapshot) => {
       const users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setUsersList(users);
@@ -76,7 +78,7 @@ const MasterData: React.FC<MasterDataProps> = ({ handleImportSiswa, handleRestor
       handleFirestoreError(error, OperationType.LIST, 'admin_emails');
     });
     return () => unsub();
-  }, []);
+  }, [userRole]);
 
   const handleDeleteUser = async (emailId: string) => {
     if (window.confirm(`Hapus akses untuk ${emailId}?`)) {

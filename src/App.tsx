@@ -172,7 +172,7 @@ const App: React.FC = () => {
 
     let unsubIzin: () => void = () => {};
 
-    if (isLoggedIn) {
+    if (isLoggedIn && (userRole === 'admin' || userRole === 'entry')) {
       const qIzin = query(collection(db, 'izin_wali'), orderBy('createdAt', 'desc'));
       unsubIzin = onSnapshot(qIzin, (snapshot) => {
         const izins = snapshot.docs.map(doc => ({
@@ -207,7 +207,7 @@ const App: React.FC = () => {
       unsubSiswa();
       unsubIzin();
     };
-  }, [isAuthReady, isLoggedIn]);
+  }, [isAuthReady, isLoggedIn, userRole]);
 
   const getPanggilanData = () => {
     const alphaMap: Record<string, { name: string; kelas: string; count: number }> = {};

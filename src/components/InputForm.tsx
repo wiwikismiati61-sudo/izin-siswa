@@ -13,7 +13,7 @@ interface InputFormProps {
   onSave: (entry: AbsensiEntry) => void;
   onGoToRekapIzin?: () => void;
   izinBadgeCount?: number;
-  userRole?: 'admin' | 'viewer' | null;
+  userRole?: 'admin' | 'viewer' | 'entry' | null;
 }
 
 const InputForm: React.FC<InputFormProps> = ({ masterSiswa, editingEntry, onCancel, onSave, onGoToRekapIzin, izinBadgeCount = 0, userRole }) => {
@@ -72,7 +72,7 @@ const InputForm: React.FC<InputFormProps> = ({ masterSiswa, editingEntry, onCanc
     } as AbsensiEntry);
   };
 
-  if (userRole !== 'admin') {
+  if (userRole !== 'admin' && userRole !== 'entry') {
     return (
       <div className="flex flex-col items-center justify-center h-full space-y-4 animate-in fade-in duration-500">
         <div className="p-4 bg-rose-100 text-rose-600 rounded-full">
@@ -80,7 +80,7 @@ const InputForm: React.FC<InputFormProps> = ({ masterSiswa, editingEntry, onCanc
         </div>
         <h2 className="text-2xl font-black text-slate-800">Akses Ditolak</h2>
         <p className="text-slate-500 text-center max-w-md">
-          Halaman Input Data hanya dapat diakses oleh Administrator.
+          Halaman Input Data hanya dapat diakses oleh Administrator dan Entry Data.
         </p>
       </div>
     );
