@@ -153,8 +153,8 @@ const InputForm: React.FC<InputFormProps> = ({ masterSiswa, editingEntry, onCanc
               disabled={!form.kelas}
             >
               <option value="">{form.kelas ? 'Pilih siswa...' : 'Pilih kelas dahulu'}</option>
-              {siswaDiKelas.map(s => (
-                <option key={s.Nama} value={s.Nama}>{s.Nama}</option>
+              {siswaDiKelas.map((s, index) => (
+                <option key={s.id || `student-${index}`} value={s.Nama}>{s.Nama}</option>
               ))}
             </select>
         </div>

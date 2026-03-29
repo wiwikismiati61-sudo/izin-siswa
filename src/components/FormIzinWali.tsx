@@ -185,8 +185,8 @@ const FormIzinWali: React.FC<FormIzinWaliProps> = ({ masterSiswa }) => {
                   required
                 >
                   <option value="">{kelas ? 'Pilih Siswa' : 'Pilih kelas dahulu'}</option>
-                  {studentsInSelectedClass.map(s => (
-                    <option key={s.Nama} value={s.Nama}>{s.Nama}</option>
+                  {studentsInSelectedClass.map((s, index) => (
+                    <option key={s.id || `student-${index}`} value={s.Nama}>{s.Nama}</option>
                   ))}
                 </select>
               </div>

@@ -433,7 +433,7 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
                     <tbody className="divide-y divide-slate-100">
                         {selectedClass && studentSummary.length > 0 ? (
                             studentSummary.map((summary, index) => (
-                            <tr key={summary.nama} className="hover:bg-slate-50 transition-colors">
+                            <tr key={`summary-${index}`} className="hover:bg-slate-50 transition-colors">
                                 <td className="p-4 text-center font-semibold text-slate-500">{index + 1}</td>
                                 <td className="p-4 font-bold text-slate-800">{summary.nama}</td>
                                 <td className="p-4 text-center font-bold text-emerald-600">{summary.sakit || '-'}</td>
@@ -515,8 +515,8 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
                     className="w-full md:w-auto flex-1 p-2.5 px-4 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all appearance-none disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed cursor-pointer"
                 >
                     <option value="">{filterClass ? 'Semua Siswa' : 'Pilih kelas dahulu'}</option>
-                    {studentsInSelectedFilterClass.map(s => (
-                        <option key={s.Nama} value={s.Nama}>{s.Nama}</option>
+                    {studentsInSelectedFilterClass.map((s, index) => (
+                        <option key={s.id || `student-${index}`} value={s.Nama}>{s.Nama}</option>
                     ))}
                 </select>
                 <div className="flex items-center gap-2 bg-white p-1 rounded-xl border border-slate-200 w-full md:w-auto shadow-sm">
