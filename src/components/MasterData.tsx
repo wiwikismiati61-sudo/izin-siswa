@@ -64,9 +64,10 @@ const MasterData: React.FC<MasterDataProps> = ({ handleImportSiswa, handleRestor
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [success, setSuccess] = useState<string | null>(null);
   const [role, setRole] = useState<'admin' | 'viewer' | 'entry'>('admin');
   const [usersList, setUsersList] = useState<any[]>([]);
+  const [userToDelete, setUserToDelete] = useState<string | null>(null);
 
   React.useEffect(() => {
     if (userRole !== 'admin') return;
@@ -80,21 +81,26 @@ const MasterData: React.FC<MasterDataProps> = ({ handleImportSiswa, handleRestor
     return () => unsub();
   }, [userRole]);
 
-  const handleDeleteUser = async (emailId: string) => {
-    if (window.confirm(`Hapus akses untuk ${emailId}?`)) {
-      try {
-        await deleteDoc(doc(db, 'admin_emails', emailId));
-        
-        // Also try to delete from users collection if exists
-        const q = query(collection(db, 'users'), where('email', '==', emailId));
-        const snapshot = await getDocs(q);
-        snapshot.forEach(async (docSnap) => {
-          await deleteDoc(doc(db, 'users', docSnap.id));
-        });
-      } catch (error) {
-        console.error("Error deleting user:", error);
-        alert("Gagal menghapus user.");
-      }
+  const handleDeleteUser = (emailId: string) => {
+    setUserToDelete(emailId);
+  };
+
+  const confirmDeleteUser = async () => {
+    if (!userToDelete) return;
+    try {
+      await deleteDoc(doc(db, 'admin_emails', userToDelete));
+      
+      // Also try to delete from users collection if exists
+      const q = query(collection(db, 'users'), where('email', '==', userToDelete));
+      const snapshot = await getDocs(q);
+      snapshot.forEach(async (docSnap) => {
+        await deleteDoc(doc(db, 'users', docSnap.id));
+      });
+      setUserToDelete(null);
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      setError("Gagal menghapus user.");
+      setUserToDelete(null);
     }
   };
 
@@ -118,7 +124,7 @@ const MasterData: React.FC<MasterDataProps> = ({ handleImportSiswa, handleRestor
     e.preventDefault();
     setLoading(true);
     setError(null);
-    setSuccess(false);
+    setSuccess(null);
 
     const formattedEmail = username.includes('@') ? username.toLowerCase() : `${username.toLowerCase()}@sistem.local`;
 
@@ -153,15 +159,18 @@ const MasterData: React.FC<MasterDataProps> = ({ handleImportSiswa, handleRestor
       // Sign out the secondary app
       await signOut(secondaryAuth);
 
-      setSuccess(true);
+      setSuccess("User berhasil didaftarkan!");
       setUsername('');
       setPassword('');
       setTimeout(() => {
         setShowRegisterModal(false);
-        setSuccess(false);
+        setSuccess(null);
       }, 2000);
     } catch (err: any) {
-      console.error("Register Error:", err);
+      if (err.code !== 'auth/email-already-in-use') {
+        console.error("Register Error:", err);
+      }
+      
       if (err.code === 'auth/email-already-in-use') {
         // The user already exists in Auth. We can't get their UID easily, 
         // but we can add their email to admin_emails so they get admin access when they log in.
@@ -172,16 +181,16 @@ const MasterData: React.FC<MasterDataProps> = ({ handleImportSiswa, handleRestor
             role: role,
             addedAt: serverTimestamp()
           });
-          setSuccess(true);
+          setSuccess("User sudah ada, akses berhasil ditambahkan!");
           setUsername('');
           setPassword('');
           setTimeout(() => {
             setShowRegisterModal(false);
-            setSuccess(false);
+            setSuccess(null);
           }, 2000);
         } catch (dbErr) {
           console.error("Error adding to admin_emails:", dbErr);
-          setError("Gagal memberikan akses admin ke user yang sudah terdaftar.");
+          setError("Gagal memberikan akses ke user yang sudah terdaftar.");
         }
       } else if (err.code === 'auth/weak-password') {
         setError("Password terlalu lemah (minimal 6 karakter).");
@@ -342,7 +351,7 @@ const MasterData: React.FC<MasterDataProps> = ({ handleImportSiswa, handleRestor
               )}
               {success && (
                 <div className="p-3 bg-emerald-50 text-emerald-600 text-sm font-bold rounded-xl border border-emerald-100">
-                  User berhasil didaftarkan!
+                  {success}
                 </div>
               )}
               
@@ -403,6 +412,47 @@ const MasterData: React.FC<MasterDataProps> = ({ handleImportSiswa, handleRestor
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {userToDelete && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-xl animate-in fade-in zoom-in duration-200">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-rose-50/50">
+              <div className="flex items-center gap-3 text-rose-600">
+                <div className="p-2 bg-rose-100 rounded-lg">
+                  <Trash2 size={20} />
+                </div>
+                <h3 className="text-lg font-black">Konfirmasi Hapus</h3>
+              </div>
+              <button
+                onClick={() => setUserToDelete(null)}
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-6">
+              <p className="text-slate-600 font-medium mb-6">
+                Apakah Anda yakin ingin menghapus akses untuk <span className="font-bold text-slate-800">{userToDelete}</span>? Tindakan ini tidak dapat dibatalkan.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setUserToDelete(null)}
+                  className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-sm transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={confirmDeleteUser}
+                  className="flex-1 py-3 bg-rose-500 hover:bg-rose-600 text-white rounded-xl font-bold text-sm transition-colors shadow-sm shadow-rose-200"
+                >
+                  Ya, Hapus
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
