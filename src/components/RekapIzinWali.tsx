@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { IzinWaliMurid, Siswa } from '../types';
-import { CheckCircle2, FileText, XCircle, Search, Calendar } from 'lucide-react';
+import { CheckCircle2, FileText, XCircle, Search, Calendar, Trash2 } from 'lucide-react';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase';
-import { doc, updateDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { doc, updateDoc, addDoc, collection, serverTimestamp, deleteDoc } from 'firebase/firestore';
 
 interface RekapIzinWaliProps {
   izinData: IzinWaliMurid[];
@@ -14,6 +14,18 @@ const RekapIzinWali: React.FC<RekapIzinWaliProps> = ({ izinData, onViewEvidence,
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'done'>('pending');
   const [searchQuery, setSearchQuery] = useState('');
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
+  const confirmDelete = async () => {
+    if (!deleteConfirmId) return;
+    try {
+      await deleteDoc(doc(db, 'izin_wali', deleteConfirmId));
+      setDeleteConfirmId(null);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, 'izin_wali');
+      console.error('Gagal menghapus data', error);
+    }
+  };
 
   const filteredData = useMemo(() => {
     return izinData.filter(item => {
@@ -180,15 +192,26 @@ const RekapIzinWali: React.FC<RekapIzinWaliProps> = ({ izinData, onViewEvidence,
                       )}
                     </td>
                     <td className="p-4 text-right">
-                      {!item.statusInput && (
-                        <button
-                          onClick={() => handleInputKeAbsensi(item)}
-                          disabled={processingId === item.id}
-                          className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {processingId === item.id ? 'Memproses...' : 'Input ke Absensi'}
-                        </button>
-                      )}
+                      <div className="flex justify-end items-center gap-2">
+                        {!item.statusInput && (
+                          <button
+                            onClick={() => handleInputKeAbsensi(item)}
+                            disabled={processingId === item.id}
+                            className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {processingId === item.id ? 'Memproses...' : 'Input ke Absensi'}
+                          </button>
+                        )}
+                        {userRole === 'admin' && (
+                          <button
+                            onClick={() => setDeleteConfirmId(item.id)}
+                            className="p-1.5 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-100 transition-colors"
+                            title="Hapus Data"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -203,6 +226,34 @@ const RekapIzinWali: React.FC<RekapIzinWaliProps> = ({ izinData, onViewEvidence,
           </table>
         </div>
       </div>
+
+      {deleteConfirmId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-center w-12 h-12 rounded-full bg-rose-100 text-rose-600 mb-4 mx-auto">
+              <Trash2 size={24} />
+            </div>
+            <h3 className="text-xl font-black text-slate-900 text-center mb-2">Hapus Data Izin?</h3>
+            <p className="text-slate-500 text-center text-sm mb-6">
+              Data izin wali murid ini akan dihapus secara permanen dan tidak dapat dikembalikan.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteConfirmId(null)}
+                className="flex-1 px-4 py-2.5 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="flex-1 px-4 py-2.5 bg-rose-600 text-white font-bold rounded-xl hover:bg-rose-700 transition-colors"
+              >
+                Ya, Hapus
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

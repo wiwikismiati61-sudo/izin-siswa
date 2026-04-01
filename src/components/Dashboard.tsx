@@ -67,10 +67,21 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(today);
   const [tableFilterClass, setTableFilterClass] = useState('');
+  const [nihilDate, setNihilDate] = useState(today);
 
   const filteredData = useMemo(() => {
     return dataAbsensi.filter(d => d.tanggal >= startDate && d.tanggal <= endDate);
   }, [dataAbsensi, startDate, endDate]);
+
+  const kelasNihil = useMemo(() => {
+    const activeClasses = Array.from(new Set(masterSiswa.map(s => String(s.Kelas))));
+    const absencesOnDate = dataAbsensi.filter(d => d.tanggal === nihilDate);
+    const classesWithAbsences = new Set(absencesOnDate.map(d => String(d.kelas)));
+    
+    return activeClasses
+      .filter(c => !classesWithAbsences.has(c))
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  }, [masterSiswa, dataAbsensi, nihilDate]);
 
   const getStats = () => {
     return {
@@ -183,6 +194,42 @@ const Dashboard: React.FC<DashboardProps> = ({
         <StatCard label="Alpha (Periode)" value={stats.alpha} color="rose" />
         <StatCard label="Total Absen (Periode)" value={stats.totalInRange} color="slate" />
         <StatCard label="Total Seluruh Data" value={stats.totalOverall} color="indigo" icon={<Users className="w-4 h-4" />} />
+      </div>
+
+      {/* Kelas Nihil */}
+      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+        <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-4">
+          <div className="flex items-center gap-3">
+            <h3 className="text-lg font-black text-slate-900 tracking-tight">Kelas Nihil (100% Hadir)</h3>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 px-2 py-1 rounded-lg border border-slate-100">
+              {kelasNihil.length} Kelas
+            </span>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tanggal:</span>
+            <input 
+              type="date" 
+              value={nihilDate}
+              onChange={(e) => setNihilDate(e.target.value)}
+              className="p-1.5 px-3 bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+            />
+          </div>
+        </div>
+        
+        {kelasNihil.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {kelasNihil.map((kelas, idx) => (
+              <div key={idx} className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1.5 rounded-lg text-sm font-bold shadow-sm">
+                Kelas {kelas}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="p-6 text-center text-slate-400 font-bold italic bg-slate-50 rounded-xl border border-slate-100">
+            Tidak ada kelas nihil pada tanggal ini.
+          </div>
+        )}
       </div>
 
       {/* Ringkasan Nama Siswa Tidak Hadir */}
