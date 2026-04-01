@@ -24,7 +24,7 @@ const Peringatan: React.FC<PeringatanProps> = ({ sakitWarningData, izinWarningDa
           <HeartPulse size={24} />
           Siswa Sakit Lebih dari 4x
         </h2>
-        <div className="grid grid-cols-1 gap-4">
+        <div className="grid grid-cols-1 gap-4 max-h-[580px] overflow-y-auto pr-2 custom-scrollbar">
           {sakitWarningData.length > 0 ? sakitWarningData.map((s, idx) => (
             <div key={idx} className="bg-white p-6 rounded-2xl border-l-4 border-emerald-500 shadow-sm border border-slate-200 flex justify-between items-center hover:shadow-md transition-shadow">
               <div>
@@ -46,7 +46,7 @@ const Peringatan: React.FC<PeringatanProps> = ({ sakitWarningData, izinWarningDa
           <FileCheck2 size={24} />
           Siswa Izin Lebih dari 4x
         </h2>
-        <div className="grid grid-cols-1 gap-4">
+        <div className="grid grid-cols-1 gap-4 max-h-[580px] overflow-y-auto pr-2 custom-scrollbar">
           {izinWarningData.length > 0 ? izinWarningData.map((s, idx) => (
             <div key={idx} className="bg-white p-6 rounded-2xl border-l-4 border-amber-500 shadow-sm border border-slate-200 flex justify-between items-center hover:shadow-md transition-shadow">
               <div>
@@ -68,7 +68,7 @@ const Peringatan: React.FC<PeringatanProps> = ({ sakitWarningData, izinWarningDa
           <UserX size={24} />
           Panggilan Orang Tua (&gt;2x Alpha)
         </h2>
-        <div className="grid grid-cols-1 gap-4">
+        <div className="grid grid-cols-1 gap-4 max-h-[580px] overflow-y-auto pr-2 custom-scrollbar">
           {panggilanData.length > 0 ? panggilanData.map((s, idx) => (
             <div key={idx} className="bg-white p-6 rounded-2xl border-l-4 border-rose-500 shadow-sm border border-slate-200 flex justify-between items-center group hover:shadow-md transition-shadow">
               <div>
