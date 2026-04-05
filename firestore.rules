@@ -123,6 +123,12 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    match /master_data/{docId} {
+      // Bundle read for all users, write for admin only
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     match /absensi_log/{absensiId} {
       // Dashboard needs public read as per user request "membuka dashboard tidak perlu login"
       allow read: if true; 

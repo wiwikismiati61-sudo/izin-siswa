@@ -1,9 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import { Upload, Trash2, Pencil, FileText, RotateCcw, Download } from 'lucide-react';
+import { Upload, Trash2, Pencil, FileText, RotateCcw, Download, Search, Loader2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { AbsensiEntry, Siswa } from '../types';
+import { db } from '../firebase';
+import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 
 // Constants
 const KELAS_LIST = [7, 8, 9];
@@ -20,13 +22,56 @@ interface ReportTableProps {
   onDeleteDuplicates: () => void;
   isLoggedIn: boolean;
   userRole?: 'admin' | 'viewer' | 'entry' | null;
+  setErrorToThrow: (error: Error | null) => void;
 }
 
-const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, onDelete, onClearAll, onViewEvidence, onImport, onDeleteDuplicates, isLoggedIn, userRole }) => {
+const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, onDelete, onClearAll, onViewEvidence, onImport, onDeleteDuplicates, isLoggedIn, userRole, setErrorToThrow }) => {
   const [filterClass, setFilterClass] = useState('');
   const [filterStudent, setFilterStudent] = useState('');
   const [filterStartDate, setFilterStartDate] = useState('');
   const [filterEndDate, setFilterEndDate] = useState('');
+  const [localData, setLocalData] = useState<AbsensiEntry[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  
+  // Fetch initial data on mount
+  React.useEffect(() => {
+    handleSearch();
+  }, []);
+
+  const displayData = useMemo(() => {
+    return localData.length > 0 ? localData : data;
+  }, [localData, data]);
+
+  const handleSearch = async () => {
+    setIsSearching(true);
+    try {
+      let q = query(collection(db, 'absensi_log'), orderBy('tanggal', 'desc'), limit(300));
+      
+      const constraints = [];
+      if (filterClass) constraints.push(where('kelas', '==', filterClass));
+      if (filterStudent) constraints.push(where('nama', '==', filterStudent));
+      if (filterStartDate) constraints.push(where('tanggal', '>=', filterStartDate));
+      if (filterEndDate) constraints.push(where('tanggal', '<=', filterEndDate));
+      
+      if (constraints.length > 0) {
+        q = query(collection(db, 'absensi_log'), ...constraints, orderBy('tanggal', 'desc'), limit(300));
+      }
+      
+      const snapshot = await getDocs(q);
+      const results = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as AbsensiEntry[];
+      setLocalData(results);
+    } catch (error) {
+      console.error("Search error:", error);
+      try {
+        handleFirestoreError(error, OperationType.LIST, 'absensi_log');
+      } catch (e: any) {
+        setErrorToThrow(e);
+      }
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
   const [selectedClass, setSelectedClass] = useState('');
   const [summaryStartDate, setSummaryStartDate] = useState('');
   const [summaryEndDate, setSummaryEndDate] = useState('');
@@ -42,7 +87,7 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
     const uniqueStudentNames = Array.from(new Set(studentsInClass.map(s => s.Nama)));
     
     // Also include students who have absence records in this class but might not be in masterSiswa
-    const absencesInClass = data.filter(d => String(d.kelas).trim().toUpperCase() === String(selectedClass).trim().toUpperCase());
+    const absencesInClass = displayData.filter(d => String(d.kelas).trim().toUpperCase() === String(selectedClass).trim().toUpperCase());
     absencesInClass.forEach(d => {
       if (!uniqueStudentNames.some(name => name.trim().toUpperCase() === d.nama.trim().toUpperCase())) {
         uniqueStudentNames.push(d.nama);
@@ -50,7 +95,7 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
     });
 
     return uniqueStudentNames.map(studentName => {
-      const studentAbsences = data.filter(d => {
+      const studentAbsences = displayData.filter(d => {
         const matchName = d.nama.trim().toUpperCase() === studentName.trim().toUpperCase();
         const matchClass = String(d.kelas).trim().toUpperCase() === String(selectedClass).trim().toUpperCase();
         const matchStartDate = summaryStartDate ? d.tanggal >= summaryStartDate : true;
@@ -71,7 +116,7 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
         records: studentAbsences,
       };
     }).sort((a, b) => a.nama.localeCompare(b.nama));
-  }, [selectedClass, masterSiswa, data, summaryStartDate, summaryEndDate]);
+  }, [selectedClass, masterSiswa, displayData, summaryStartDate, summaryEndDate]);
 
   const studentsInSelectedFilterClass = useMemo(() => {
     if (!filterClass) return [];
@@ -80,7 +125,7 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
     const uniqueNames = Array.from(new Set(filtered.map(s => s.Nama)));
     
     // Also include students who have absence records in this class but might not be in masterSiswa
-    const absencesInClass = data.filter(d => String(d.kelas).trim().toUpperCase() === String(filterClass).trim().toUpperCase());
+    const absencesInClass = displayData.filter(d => String(d.kelas).trim().toUpperCase() === String(filterClass).trim().toUpperCase());
     absencesInClass.forEach(d => {
       if (!uniqueNames.some(name => name.trim().toUpperCase() === d.nama.trim().toUpperCase())) {
         uniqueNames.push(d.nama);
@@ -90,27 +135,184 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
     return uniqueNames
         .map(name => ({ Nama: name }))
         .sort((a, b) => a.Nama.localeCompare(b.Nama));
-  }, [filterClass, masterSiswa, data]);
+  }, [filterClass, masterSiswa, displayData]);
 
-  const handleExportSummaryExcel = () => {
+  const handleExportSummaryExcel = async () => {
     if (!selectedClass || studentSummary.length === 0) {
       alert("Pilih kelas dan pastikan ada data untuk diekspor.");
       return;
     }
   
-    const dataToExport = studentSummary.map((summary, index) => ({
-      'No': index + 1,
-      'Nama Siswa': summary.nama,
-      'Sakit': summary.sakit,
-      'Izin': summary.izin,
-      'Alpha': summary.alpha,
-      'Total': summary.total,
-    }));
-  
-    const ws = XLSX.utils.json_to_sheet(dataToExport);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, `Rekap Kelas ${selectedClass}`);
-    XLSX.writeFile(wb, `Rekap_Absensi_Kelas_${selectedClass}_${new Date().toISOString().split('T')[0]}.xlsx`);
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet(`Rekap_${selectedClass}`);
+
+    // Set column widths
+    worksheet.columns = [
+      { width: 5 },  // A: No
+      { width: 35 }, // B: Nama Siswa
+      { width: 10 }, // C: Sakit
+      { width: 10 }, // D: Izin
+      { width: 10 }, // E: Alpha
+      { width: 10 }  // F: Total
+    ];
+
+    // --- KOP SURAT ---
+    worksheet.mergeCells('B1:F1');
+    const kop1 = worksheet.getCell('B1');
+    kop1.value = 'PEMERINTAH KOTA PASURUAN';
+    kop1.font = { name: 'Arial', size: 14, bold: true };
+    kop1.alignment = { horizontal: 'center' };
+
+    worksheet.mergeCells('B2:F2');
+    const kop2 = worksheet.getCell('B2');
+    kop2.value = 'SMP NEGERI 7';
+    kop2.font = { name: 'Arial', size: 18, bold: true };
+    kop2.alignment = { horizontal: 'center' };
+
+    worksheet.mergeCells('B3:F3');
+    const kop3 = worksheet.getCell('B3');
+    kop3.value = 'Jalan Simpang Slamet Riadi Nomor 2, Kota Pasuruan, Jawa Timur, 67139';
+    kop3.font = { name: 'Arial', size: 10 };
+    kop3.alignment = { horizontal: 'center' };
+
+    worksheet.mergeCells('B4:F4');
+    const kop4 = worksheet.getCell('B4');
+    kop4.value = 'Telepon (0343) 426845';
+    kop4.font = { name: 'Arial', size: 10 };
+    kop4.alignment = { horizontal: 'center' };
+
+    worksheet.mergeCells('B5:F5');
+    const kop5 = worksheet.getCell('B5');
+    kop5.value = 'Pos-el smp7pas@yahoo.co.id , Laman www.smpn7pasuruan.sch.id';
+    kop5.font = { name: 'Arial', size: 10, italic: true };
+    kop5.alignment = { horizontal: 'center' };
+
+    // Blue line
+    worksheet.mergeCells('A6:F6');
+    const lineCell = worksheet.getCell('A6');
+    lineCell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF4F81BD' }
+    };
+    worksheet.getRow(6).height = 3;
+
+    // Title
+    worksheet.mergeCells('A8:F8');
+    const titleCell = worksheet.getCell('A8');
+    titleCell.value = 'REKAPITULASI ABSENSI SISWA';
+    titleCell.font = { name: 'Arial', size: 20, bold: true };
+    titleCell.alignment = { horizontal: 'center' };
+
+    // Info
+    worksheet.getCell('B10').value = 'Kelas';
+    worksheet.getCell('C10').value = ': ' + selectedClass;
+    if (summaryStartDate || summaryEndDate) {
+      worksheet.getCell('B11').value = 'Periode';
+      worksheet.getCell('C11').value = `: ${summaryStartDate || 'Awal'} s/d ${summaryEndDate || 'Sekarang'}`;
+    }
+
+    // Fetch and add Logo
+    try {
+      const response = await fetch('https://iili.io/KDFk4fI.png');
+      if (response.ok) {
+        const arrayBuffer = await response.arrayBuffer();
+        const logoId = workbook.addImage({
+          buffer: arrayBuffer,
+          extension: 'png',
+        });
+        
+        worksheet.addImage(logoId, {
+          tl: { col: 0, row: 0 },
+          br: { col: 1, row: 5 },
+          editAs: 'oneCell'
+        });
+      }
+    } catch (error) {
+      console.error("Failed to load logo", error);
+    }
+
+    // Table Header
+    const headerRow = worksheet.getRow(13);
+    headerRow.values = ['No', 'NAMA SISWA', 'SAKIT', 'IZIN', 'ALPHA', 'TOTAL'];
+    headerRow.height = 25;
+    
+    headerRow.eachCell((cell) => {
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF4F81BD' }
+      };
+      cell.font = { color: { argb: 'FFFFFFFF' }, bold: true };
+      cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      cell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      };
+    });
+
+    // Table Data
+    studentSummary.forEach((summary, index) => {
+      const row = worksheet.addRow([
+        index + 1,
+        summary.nama.toUpperCase(),
+        summary.sakit || 0,
+        summary.izin || 0,
+        summary.alpha || 0,
+        summary.total
+      ]);
+
+      const isEven = index % 2 === 1;
+
+      row.eachCell((cell, colNumber) => {
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        };
+        cell.alignment = { vertical: 'middle' };
+        
+        if (colNumber === 1 || (colNumber >= 3 && colNumber <= 6)) {
+          cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        }
+
+        if (isEven) {
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFF2F7FF' }
+          };
+        }
+      });
+    });
+
+    // Signature Area
+    const lastRow = worksheet.rowCount + 2;
+    
+    // Left side
+    worksheet.getCell(`B${lastRow}`).value = 'Mengetahui';
+    worksheet.getCell(`B${lastRow + 1}`).value = 'Kepala Sekolah';
+    worksheet.getCell(`B${lastRow + 5}`).value = 'NUR FADILAH, S.Pd';
+    worksheet.getCell(`B${lastRow + 5}`).font = { bold: true, underline: true };
+    worksheet.getCell(`B${lastRow + 6}`).value = 'NIP. 19860410 201001 2 030';
+
+    // Right side
+    const today = new Date();
+    const formattedDate = `${today.getDate()} ${['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'][today.getMonth()]} ${today.getFullYear()}`;
+    
+    worksheet.getCell(`E${lastRow}`).value = `Pasuruan, ${formattedDate}`;
+    worksheet.getCell(`E${lastRow + 1}`).value = 'Guru BK';
+    worksheet.getCell(`E${lastRow + 5}`).value = 'WIWIK ISMIATI, S.Pd';
+    worksheet.getCell(`E${lastRow + 5}`).font = { bold: true, underline: true };
+    worksheet.getCell(`E${lastRow + 6}`).value = 'NIP. 19831116 200904 2 003';
+
+    // Generate and save file
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    saveAs(blob, `Rekap_Absensi_Kelas_${selectedClass}_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
   const handlePrintDailyExcel = async () => {
@@ -123,7 +325,7 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
     const uniqueStudentNames = Array.from(new Set(studentsInClass.map(s => s.Nama)));
     
     // Also include students who have absence records in this class but might not be in masterSiswa
-    const absencesInClass = data.filter(d => String(d.kelas).trim().toUpperCase() === String(printClass).trim().toUpperCase());
+    const absencesInClass = displayData.filter(d => String(d.kelas).trim().toUpperCase() === String(printClass).trim().toUpperCase());
     absencesInClass.forEach(d => {
       if (!uniqueStudentNames.some(name => name.trim().toUpperCase() === d.nama.trim().toUpperCase())) {
         uniqueStudentNames.push(d.nama);
@@ -141,28 +343,66 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
     worksheet.columns = [
       { width: 5 },  // A: No
       { width: 35 }, // B: Nama Siswa
-      { width: 8 },  // C: Masuk
-      { width: 8 },  // D: Sakit
-      { width: 8 },  // E: Izin
-      { width: 8 },  // F: Alpha
+      { width: 10 }, // C: Masuk
+      { width: 10 }, // D: Sakit
+      { width: 10 }, // E: Izin
+      { width: 10 }, // F: Alpha
       { width: 25 }  // G: Keterangan
     ];
 
-    // Add Title
-    worksheet.mergeCells('C1:G2');
-    const titleCell = worksheet.getCell('C1');
-    titleCell.value = 'DAFTAR KEHADIRAN SISWA';
-    titleCell.font = { name: 'Times New Roman', size: 16, bold: true };
-    titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
+    // --- KOP SURAT ---
+    worksheet.mergeCells('B1:G1');
+    const kop1 = worksheet.getCell('B1');
+    kop1.value = 'PEMERINTAH KOTA PASURUAN';
+    kop1.font = { name: 'Arial', size: 14, bold: true };
+    kop1.alignment = { horizontal: 'center' };
 
-    // Add Kelas and Tanggal
-    worksheet.getCell('E4').value = 'Kelas';
-    worksheet.getCell('F4').value = ':';
-    worksheet.getCell('G4').value = printClass;
-    
-    worksheet.getCell('E5').value = 'Tanggal';
-    worksheet.getCell('F5').value = ':';
-    worksheet.getCell('G5').value = printDate;
+    worksheet.mergeCells('B2:G2');
+    const kop2 = worksheet.getCell('B2');
+    kop2.value = 'SMP NEGERI 7';
+    kop2.font = { name: 'Arial', size: 18, bold: true };
+    kop2.alignment = { horizontal: 'center' };
+
+    worksheet.mergeCells('B3:G3');
+    const kop3 = worksheet.getCell('B3');
+    kop3.value = 'Jalan Simpang Slamet Riadi Nomor 2, Kota Pasuruan, Jawa Timur, 67139';
+    kop3.font = { name: 'Arial', size: 10 };
+    kop3.alignment = { horizontal: 'center' };
+
+    worksheet.mergeCells('B4:G4');
+    const kop4 = worksheet.getCell('B4');
+    kop4.value = 'Telepon (0343) 426845';
+    kop4.font = { name: 'Arial', size: 10 };
+    kop4.alignment = { horizontal: 'center' };
+
+    worksheet.mergeCells('B5:G5');
+    const kop5 = worksheet.getCell('B5');
+    kop5.value = 'Pos-el smp7pas@yahoo.co.id , Laman www.smpn7pasuruan.sch.id';
+    kop5.font = { name: 'Arial', size: 10, italic: true };
+    kop5.alignment = { horizontal: 'center' };
+
+    // Blue line
+    worksheet.mergeCells('A6:G6');
+    const lineCell = worksheet.getCell('A6');
+    lineCell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF4F81BD' } // Blue color from image
+    };
+    worksheet.getRow(6).height = 3;
+
+    // Title
+    worksheet.mergeCells('A8:G8');
+    const titleCell = worksheet.getCell('A8');
+    titleCell.value = 'DAFTAR HADIR SISWA';
+    titleCell.font = { name: 'Arial', size: 20, bold: true };
+    titleCell.alignment = { horizontal: 'center' };
+
+    // Info
+    worksheet.getCell('B10').value = 'Kelas';
+    worksheet.getCell('C10').value = ': ' + printClass;
+    worksheet.getCell('B11').value = 'Tanggal';
+    worksheet.getCell('C11').value = ': ' + printDate;
 
     // Fetch and add Logo
     try {
@@ -174,10 +414,9 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
           extension: 'png',
         });
         
-        // Add image to worksheet (A1:B5)
         worksheet.addImage(logoId, {
           tl: { col: 0, row: 0 },
-          br: { col: 2, row: 5 },
+          br: { col: 1, row: 5 },
           editAs: 'oneCell'
         });
       }
@@ -186,15 +425,15 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
     }
 
     // Table Header
-    const headerRow = worksheet.getRow(7);
-    headerRow.values = ['No', 'Nama Siswa', 'Masuk', 'Sakit', 'Izin', 'Alpha', 'Keterangan'];
+    const headerRow = worksheet.getRow(13);
+    headerRow.values = ['No', 'NAMA SISWA', 'MASUK', 'SAKIT', 'IZIN', 'ALPHA', 'KETERANGAN'];
     headerRow.height = 25;
     
     headerRow.eachCell((cell) => {
       cell.fill = {
         type: 'pattern',
         pattern: 'solid',
-        fgColor: { argb: 'FF595959' } // Dark gray
+        fgColor: { argb: 'FF4F81BD' } // Blue header
       };
       cell.font = { color: { argb: 'FFFFFFFF' }, bold: true };
       cell.alignment = { vertical: 'middle', horizontal: 'center' };
@@ -208,7 +447,7 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
 
     // Table Data
     uniqueStudents.forEach((student, index) => {
-      const absenceRecord = data.find(d => 
+      const absenceRecord = displayData.find(d => 
         d.nama.trim().toUpperCase() === student.Nama.trim().toUpperCase() && 
         String(d.kelas).trim().toUpperCase() === String(printClass).trim().toUpperCase() && 
         d.tanggal === printDate
@@ -216,13 +455,15 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
       
       const row = worksheet.addRow([
         index + 1,
-        student.Nama,
+        student.Nama.toUpperCase(),
         absenceRecord ? '' : 'v',
         absenceRecord?.keterangan === 'Sakit' ? 'v' : '',
         absenceRecord?.keterangan === 'Izin' ? 'v' : '',
         absenceRecord?.keterangan === 'Alpha' ? 'v' : '',
         absenceRecord ? absenceRecord.keterangan : ''
       ]);
+
+      const isEven = index % 2 === 1;
 
       row.eachCell((cell, colNumber) => {
         cell.border = {
@@ -236,19 +477,36 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
         if (colNumber === 1 || (colNumber >= 3 && colNumber <= 6)) {
           cell.alignment = { vertical: 'middle', horizontal: 'center' };
         }
+
+        if (isEven) {
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFF2F7FF' }
+          };
+        }
       });
     });
 
     // Signature Area
-    const lastRow = worksheet.rowCount;
-    worksheet.mergeCells(`E${lastRow + 3}:G${lastRow + 3}`);
-    const sigTitle = worksheet.getCell(`E${lastRow + 3}`);
-    sigTitle.value = 'Yang Bertanda tangan dibawah ini';
-    sigTitle.alignment = { horizontal: 'center' };
+    const lastRow = worksheet.rowCount + 2;
+    
+    // Left side
+    worksheet.getCell(`B${lastRow}`).value = 'Mengetahui';
+    worksheet.getCell(`B${lastRow + 1}`).value = 'Kepala Sekolah';
+    worksheet.getCell(`B${lastRow + 5}`).value = 'NUR FADILAH, S.Pd';
+    worksheet.getCell(`B${lastRow + 5}`).font = { bold: true, underline: true };
+    worksheet.getCell(`B${lastRow + 6}`).value = 'NIP. 19860410 201001 2 030';
 
-    worksheet.mergeCells(`E${lastRow + 7}:G${lastRow + 7}`);
-    const sigLine = worksheet.getCell(`E${lastRow + 7}`);
-    sigLine.border = { bottom: { style: 'thin' } };
+    // Right side
+    const today = new Date();
+    const formattedDate = `${today.getDate()} ${['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'][today.getMonth()]} ${today.getFullYear()}`;
+    
+    worksheet.getCell(`F${lastRow}`).value = `Pasuruan, ${formattedDate}`;
+    worksheet.getCell(`F${lastRow + 1}`).value = 'Guru BK';
+    worksheet.getCell(`F${lastRow + 5}`).value = 'WIWIK ISMIATI, S.Pd';
+    worksheet.getCell(`F${lastRow + 5}`).font = { bold: true, underline: true };
+    worksheet.getCell(`F${lastRow + 6}`).value = 'NIP. 19831116 200904 2 003';
 
     // Generate and save file
     const buffer = await workbook.xlsx.writeBuffer();
@@ -261,17 +519,18 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
     setFilterStudent('');
     setFilterStartDate('');
     setFilterEndDate('');
+    setLocalData([]);
   };
   
   const filteredData = useMemo(() => {
-    return data.filter(item => {
+    return displayData.filter(item => {
       const matchClass = filterClass ? item.kelas === filterClass : true;
       const matchStudent = filterStudent ? item.nama === filterStudent : true;
       const matchStartDate = filterStartDate ? item.tanggal >= filterStartDate : true;
       const matchEndDate = filterEndDate ? item.tanggal <= filterEndDate : true;
       return matchClass && matchStudent && matchStartDate && matchEndDate;
     });
-  }, [data, filterClass, filterStudent, filterStartDate, filterEndDate]);
+  }, [displayData, filterClass, filterStudent, filterStartDate, filterEndDate]);
 
   const groupedData = useMemo(() => {
     const groups: any = {};
@@ -536,6 +795,15 @@ const ReportTable: React.FC<ReportTableProps> = ({ data, masterSiswa, onEdit, on
                         title="Tanggal Akhir"
                     />
                 </div>
+                <button
+                    onClick={handleSearch}
+                    disabled={isSearching}
+                    className="p-2.5 px-4 bg-indigo-600 text-white rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-indigo-700 shadow-sm transition-all w-full md:w-auto justify-center disabled:bg-slate-100 disabled:text-slate-400"
+                    title="Cari Data"
+                >
+                    {isSearching ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
+                    Cari Data
+                </button>
                 <button
                     onClick={handleResetFilters}
                     className="p-2.5 px-4 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-slate-50 hover:border-slate-300 shadow-sm transition-all w-full md:w-auto justify-center"

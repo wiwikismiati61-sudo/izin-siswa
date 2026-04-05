@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Upload, Download, Save, Database, UserPlus, X, Eye, EyeOff, Trash2 } from 'lucide-react';
+import { Upload, Download, Save, Database, UserPlus, X, Eye, EyeOff, Trash2, RotateCcw } from 'lucide-react';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase';
-import { doc, setDoc, serverTimestamp, collection, onSnapshot, deleteDoc, updateDoc, query, where, getDocs } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, collection, onSnapshot, deleteDoc, updateDoc, query, where, getDocs, limit } from 'firebase/firestore';
 import { initializeApp, getApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
@@ -54,10 +54,11 @@ interface MasterDataProps {
   handleRestore: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleExportExcel: () => void;
   handleBackup: () => void;
+  onRefreshSiswa: () => void;
   userRole?: 'admin' | 'viewer' | 'entry' | null;
 }
 
-const MasterData: React.FC<MasterDataProps> = ({ handleImportSiswa, handleRestore, handleExportExcel, handleBackup, userRole }) => {
+const MasterData: React.FC<MasterDataProps> = ({ handleImportSiswa, handleRestore, handleExportExcel, handleBackup, onRefreshSiswa, userRole }) => {
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -68,15 +69,25 @@ const MasterData: React.FC<MasterDataProps> = ({ handleImportSiswa, handleRestor
   const [role, setRole] = useState<'admin' | 'viewer' | 'entry'>('admin');
   const [usersList, setUsersList] = useState<any[]>([]);
   const [userToDelete, setUserToDelete] = useState<string | null>(null);
+  const [errorToThrow, setErrorToThrow] = useState<Error | null>(null);
+
+  if (errorToThrow) {
+    throw errorToThrow;
+  }
 
   React.useEffect(() => {
     if (userRole !== 'admin') return;
     
-    const unsub = onSnapshot(collection(db, 'admin_emails'), (snapshot) => {
+    const q = query(collection(db, 'admin_emails'), limit(50));
+    const unsub = onSnapshot(q, (snapshot) => {
       const users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setUsersList(users);
     }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'admin_emails');
+      try {
+        handleFirestoreError(error, OperationType.LIST, 'admin_emails');
+      } catch (e: any) {
+        setErrorToThrow(e);
+      }
     });
     return () => unsub();
   }, [userRole]);
@@ -230,6 +241,15 @@ const MasterData: React.FC<MasterDataProps> = ({ handleImportSiswa, handleRestor
             description="Tambahkan akses login (email & password) untuk admin baru."
             icon={<UserPlus size={24} />}
             onClick={() => setShowRegisterModal(true)}
+            color="indigo"
+          />
+        )}
+        {userRole === 'admin' && (
+          <ActionCard
+            title="Refresh Data Siswa"
+            description="Perbarui data siswa dari server (gunakan jika ada perubahan data)."
+            icon={<RotateCcw size={24} />}
+            onClick={onRefreshSiswa}
             color="indigo"
           />
         )}

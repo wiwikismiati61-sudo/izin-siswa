@@ -17,7 +17,7 @@ import {
 import { id } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Info, Plus, Trash2, X } from 'lucide-react';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, onSnapshot, addDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, deleteDoc, doc, serverTimestamp, query, limit } from 'firebase/firestore';
 
 interface Holiday {
   id?: string;
@@ -41,17 +41,27 @@ const CalendarPendidikan: React.FC<CalendarPendidikanProps> = ({ isLoggedIn, use
     name: '',
     type: 'nasional'
   });
+  const [errorToThrow, setErrorToThrow] = useState<Error | null>(null);
+
+  if (errorToThrow) {
+    throw errorToThrow;
+  }
 
   // Fetch holidays from Firestore
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'kalender_pendidikan'), (snapshot) => {
+    const q = query(collection(db, 'kalender_pendidikan'), limit(100));
+    const unsub = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as Holiday[];
       setHolidays(data);
     }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'kalender_pendidikan');
+      try {
+        handleFirestoreError(error, OperationType.LIST, 'kalender_pendidikan');
+      } catch (e: any) {
+        setErrorToThrow(e);
+      }
     });
     return () => unsub();
   }, []);

@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Users,
-  Calendar
+  Calendar,
+  Loader2
 } from 'lucide-react';
 import { 
   PieChart, 
@@ -17,6 +18,8 @@ import {
   Legend
 } from 'recharts';
 import { AbsensiEntry, Siswa } from '../types';
+import { db, handleFirestoreError, OperationType } from '../firebase';
+import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 
 // Constants
 const KELAS_LIST = [7, 8, 9];
@@ -51,37 +54,71 @@ const StatCard: React.FC<{
 };
 
 interface DashboardProps {
-  dataAbsensi: AbsensiEntry[];
   masterSiswa: Siswa[];
   dashboardSelectedClass: string;
   setDashboardSelectedClass: (kelas: string) => void;
+  setErrorToThrow: (error: Error | null) => void;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ 
-  dataAbsensi, 
   masterSiswa, 
   dashboardSelectedClass,
-  setDashboardSelectedClass
+  setDashboardSelectedClass,
+  setErrorToThrow
 }) => {
   const today = new Date().toISOString().split('T')[0];
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(today);
   const [tableFilterClass, setTableFilterClass] = useState('');
   const [nihilDate, setNihilDate] = useState(today);
+  const [dashboardData, setDashboardData] = useState<AbsensiEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Fetch data for selected range
+  useEffect(() => {
+    const fetchRangeData = async () => {
+      setIsLoading(true);
+      try {
+        const q = query(
+          collection(db, 'absensi_log'),
+          where('tanggal', '>=', startDate),
+          where('tanggal', '<=', endDate),
+          limit(500)
+        );
+        const snapshot = await getDocs(q);
+        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as AbsensiEntry[];
+        setDashboardData(data);
+      } catch (error) {
+        console.error("Error fetching dashboard range data:", error);
+        try {
+          handleFirestoreError(error, OperationType.LIST, 'absensi_log');
+        } catch (e: any) {
+          setErrorToThrow(e);
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchRangeData();
+  }, [startDate, endDate]);
 
   const filteredData = useMemo(() => {
-    return dataAbsensi.filter(d => d.tanggal >= startDate && d.tanggal <= endDate);
-  }, [dataAbsensi, startDate, endDate]);
+    return dashboardData;
+  }, [dashboardData]);
 
   const kelasNihil = useMemo(() => {
     const activeClasses = Array.from(new Set(masterSiswa.map(s => String(s.Kelas))));
-    const absencesOnDate = dataAbsensi.filter(d => d.tanggal === nihilDate);
-    const classesWithAbsences = new Set(absencesOnDate.map(d => String(d.kelas)));
+    
+    // Use dashboardData for nihilDate if possible
+    const dataForNihil = dashboardData.filter(d => d.tanggal === nihilDate);
+    
+    const classesWithAbsences = new Set(dataForNihil.map(d => String(d.kelas)));
     
     return activeClasses
       .filter(c => !classesWithAbsences.has(c))
       .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-  }, [masterSiswa, dataAbsensi, nihilDate]);
+  }, [masterSiswa, dashboardData, nihilDate]);
 
   const getStats = () => {
     return {
@@ -89,7 +126,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       izin: filteredData.filter(d => d.keterangan === 'Izin').length,
       alpha: filteredData.filter(d => d.keterangan === 'Alpha').length,
       totalInRange: filteredData.length,
-      totalOverall: dataAbsensi.length
+      totalOverall: filteredData.length // Use range total as placeholder
     };
   };
 
@@ -166,6 +203,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         </div>
         
         <div className="flex flex-wrap items-center gap-2 bg-white p-2 rounded-xl border border-slate-200 shadow-sm">
+          {isLoading && <Loader2 size={14} className="text-indigo-500 animate-spin" />}
           <div className="flex items-center gap-2 px-2 border-r border-slate-100">
             <Calendar size={14} className="text-indigo-500" />
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Periode:</span>
